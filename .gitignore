@@ -1,0 +1,5 @@
+
+credentials.py
+*.pyc
+Vendors/tests.py
+tests.py
