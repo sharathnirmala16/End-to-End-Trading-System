@@ -440,7 +440,7 @@ class SecuritiesMaster:
         if interval not in [interval.value for interval in INTERVAL]:
             raise Exception(f"{interval} not in INTERVAL Enum.")
         if instrument not in [instrument.value for instrument in INSTRUMENT]:
-            raise Exception(f"{instrument} not in INTERVAL Enum.")
+            raise Exception(f"{instrument} not in INSTRUMENT Enum.")
         if end_datetime < start_datetime:
             raise Exception(
                 f"start_datetime({start_datetime}) must be before end_datetime({end_datetime})"

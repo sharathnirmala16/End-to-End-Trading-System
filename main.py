@@ -1,5 +1,6 @@
 import utils
 import models
+import asyncio
 import schemas
 import database
 import auth_bearer
@@ -8,17 +9,17 @@ import pandas as pd
 
 from functools import wraps
 from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
-from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from typing import Dict, List
 from credentials import psql_credentials
 from datetime import datetime
 from SecuritiesMaster.securities_master import SecuritiesMaster
+from celery.result import AsyncResult
+from celery_server import Tasks
+
 
 database.Base.metadata.create_all(database.engine)
 
@@ -346,7 +347,7 @@ async def get_prices(
         prices_request.end_datetime = datetime.strptime(
             prices_request.end_datetime, "%Y-%m-%d %H:%M:%S"
         )
-        data: Dict[str, pd.DataFrame] = securities_master.get_prices(
+        task: AsyncResult = Tasks.get_prices_async.delay(
             index=prices_request.index,
             tickers=prices_request.tickers,
             interval=prices_request.interval,
@@ -358,6 +359,10 @@ async def get_prices(
             vendor_login_credentials=prices_request.vendor_login_credentials,
             cache_data=prices_request.cache_data,
         )
+
+        while not task.ready():
+            await asyncio.sleep(1)
+        data: Dict[str, pd.DataFrame] = task.get()
 
         for ticker in data:
             table = data[ticker].copy(deep=True)
