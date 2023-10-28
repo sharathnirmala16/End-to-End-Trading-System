@@ -6,6 +6,7 @@ import database
 import auth_bearer
 import numpy as np
 import pandas as pd
+import sqlalchemy
 
 from functools import wraps
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -201,6 +202,60 @@ async def logout(
     return {"message": "Logged out successfully"}
 
 
+@app.get("/get-details/{username}",tags=["Authentication"])
+@token_required
+async def get_details(username:str,session: Session = Depends(get_session),
+    dependencies=Depends(auth_bearer.JWTBearer()),):
+    user:models.User=(session.query(models.User)
+        .filter(models.User.username == username)
+        .first())
+    
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
+        )
+    
+    return{"name":user.name,"email":user.email}
+
+
+@app.put("/change-email",tags=["Authentication"])
+@token_required
+async def change_email(username:str,new_email:str,session: Session = Depends(get_session),
+    dependencies=Depends(auth_bearer.JWTBearer()),):
+    
+    user:models.User=(session.query(models.User)
+        .filter(models.User.username == username)
+        .first())
+    
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
+        )
+    
+    session.execute(sqlalchemy.text(f"UPDATE users SET email = '{new_email}' WHERE username = '{username}'"))
+    session.commit()
+
+    return {"message":"email changed successfully"}
+
+@app.put("/change-name",tags=["Authentication"])
+@token_required
+async def change_name(username:str,new_name:str,session: Session = Depends(get_session),
+    dependencies=Depends(auth_bearer.JWTBearer()),):
+    user:models.User=(session.query(models.User)
+        .filter(models.User.username == username)
+        .first())
+    
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
+        )
+    
+    session.execute(sqlalchemy.text(f"UPDATE users SET name = '{new_name}' WHERE username = '{username}'"))
+    session.commit()
+
+    return {"message":"name changed successfully"}
+
+
 # SECURITIES_MASTER
 @app.get("/securities-master/get-all-tables", tags=["Securities Master"])
 @token_required
@@ -376,3 +431,4 @@ async def get_prices(
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
