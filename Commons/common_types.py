@@ -12,3 +12,12 @@ class DownloadRequest:
         self.ticker = ticker
         self.start_datetime = start_datetime
         self.end_datetime = end_datetime
+
+    def __eq__(self, x):
+        if (
+            self.start_datetime == x.start_datetime
+            and self.end_datetime == x.end_datetime
+        ):
+            return True
+        else:
+            return False

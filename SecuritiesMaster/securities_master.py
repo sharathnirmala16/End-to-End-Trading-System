@@ -258,17 +258,82 @@ class SecuritiesMaster:
                 },
             )
 
-    # NOTE: Finish this
+    @staticmethod
+    def __group_requests(
+        requests: List[DownloadRequest],
+    ) -> List[List[DownloadRequest]]:
+        if len(requests) == 1:
+            return [requests]
+
+        sorted_requests = sorted(
+            requests, key=lambda req: (req.start_datetime, req.end_datetime)
+        )
+
+        result = []
+        i, j, n = 0, 1, len(requests)
+        while i < n:
+            temp = [sorted_requests[i]]
+            while j < n and temp[0] == sorted_requests[j]:
+                temp.append(sorted_requests[j])
+                j += 1
+            result.append(temp)
+            i = j
+            j += 1
+        return result
+
+    @staticmethod
     def __complete_download_requests(
-        data_dict: Dict[str, Tuple[pd.DataFrame | None, List[DownloadRequest] | None]]
+        data_dict: Dict[str, Tuple[pd.DataFrame | None, List[DownloadRequest] | None]],
+        exchange: str,
+        interval: int,
+        vendor_obj: APIManager,
     ) -> Dict[str, pd.DataFrame]:
         # grouping download requests by start and end date times
-        common_downloads: Dict[str, pd.DataFrame] = {}
+        download_requests: List[DownloadRequest] = []
+
+        for value in data_dict.values():
+            if value[1] != None:
+                download_requests.extend(value[1])
+
+        grouped_requests: List[List[DownloadRequest]] = []
+
+        if len(download_requests) == 0:
+            for ticker in data_dict:
+                data_dict[ticker] = data_dict[ticker][0]
+            return data_dict
+
+        # ELSE
+        grouped_requests = SecuritiesMaster.__group_requests(
+            download_requests, interval
+        )
+
+        downloaded_data: Dict[str, pd.DataFrame] = {}
+
+        for requests in grouped_requests:
+            downloaded_data.update(
+                vendor_obj.get_data(
+                    interval=interval,
+                    exchange=exchange,
+                    start_datetime=requests[0].start_datetime,
+                    end_datetime=requests[0].end_datetime,
+                    tickers=[request.ticker for request in requests],
+                    index=None,
+                    replace_close=False,
+                    progress=False,
+                )
+            )
 
         for ticker in data_dict:
-            if data_dict[ticker][1] != None:
-                pass
-        pass
+            if ticker in downloaded_data:
+                if data_dict[ticker][0] is None:
+                    data_dict[ticker][0] = downloaded_data[ticker]
+                else:
+                    data_dict[ticker] = pd.concat(
+                        [data_dict[ticker][0], downloaded_data[ticker]]
+                    )
+            else:
+                data_dict[ticker] = data_dict[ticker][0]
+        return data_dict
 
     def get_prices(
         self,
@@ -312,12 +377,12 @@ class SecuritiesMaster:
                 f"end_datetime({end_datetime}) must be at or before current datetime{datetime.now()}"
             )
 
-        # vendor_obj: APIManager = getattr(
-        #     importlib.import_module(
-        #         name=f"Vendors.{VENDOR(vendor).name.lower()}"
-        #     ),  # module name
-        #     f"{VENDOR(vendor).name[0:1] + VENDOR(vendor).name[1:].lower()}Data",  # class name
-        # )(vendor_login_credentials)
+        vendor_obj: APIManager = getattr(
+            importlib.import_module(
+                name=f"Vendors.{VENDOR(vendor).name.lower()}"
+            ),  # module name
+            f"{VENDOR(vendor).name[0:1] + VENDOR(vendor).name[1:].lower()}Data",  # class name
+        )(vendor_login_credentials)
 
         if index is not None and tickers is None:
             exchange_obj: IndexLoader = getattr(
@@ -349,6 +414,11 @@ class SecuritiesMaster:
             str, Tuple[pd.DataFrame | None, List[DownloadRequest] | None]
         ] = dict(zip(tickers, results))
 
-        # data_dict: Dict[str, pd.DataFrame]
+        data_dict = self.__complete_download_requests(
+            data_dict=data_dict,
+            interval=interval,
+            vendor_obj=vendor_obj,
+            exchange=exchange,
+        )
 
         return data_dict
