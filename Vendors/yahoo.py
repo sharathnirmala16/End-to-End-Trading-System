@@ -111,9 +111,6 @@ class YahooData(APIManager):
                 progress=False,
                 threads=True,
             )
-            print(
-                f"Query: {list(formatted_tickers.values())}\n{start_date}\n{end_date}\n{interval}"
-            )
             cols = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
             for ticker, formatted_ticker in formatted_tickers.items():
                 res_dict[ticker] = pd.DataFrame()

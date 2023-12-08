@@ -20,6 +20,7 @@ from datetime import datetime
 from SecuritiesMaster.securities_master import SecuritiesMaster
 from celery.result import AsyncResult
 from celery_server import Tasks
+from Commons.common_tasks import CommonTasks
 
 
 database.Base.metadata.create_all(database.engine)
@@ -452,13 +453,7 @@ async def get_prices(
         )
 
         for ticker in data:
-            table = data[ticker].copy(deep=True)
-            if pd.api.types.is_datetime64_any_dtype(table.index.to_series()):
-                table.index = table.index.to_series().dt.strftime("%Y-%m-%d %H:%M:%S")
-            for column in table.columns:
-                if pd.api.types.is_datetime64_any_dtype(table[column]):
-                    table[column] = table[column].dt.strftime("%Y-%m-%d %H:%M:%S")
-            data[ticker] = table.reset_index(drop=False).to_dict(orient="records")
+            data[ticker] = CommonTasks.convert_to_json_serializable(data[ticker])
         return JSONResponse(content=data)
 
     except Exception as e:

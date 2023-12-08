@@ -119,3 +119,23 @@ class CommonTasks:
             if replace_close and "adj Close" in df.columns:
                 df["close"] = df["adj close"].values
         return df
+
+    @staticmethod
+    def convert_to_json_serializable(data: pd.DataFrame) -> Dict:
+        if data.empty:
+            return {}
+        table = data.copy(deep=True)
+        if pd.api.types.is_datetime64_any_dtype(table.index.to_series()):
+            table.index = table.index.to_series().dt.strftime("%Y-%m-%d %H:%M:%S")
+        for column in table.columns:
+            if pd.api.types.is_datetime64_any_dtype(table[column]):
+                table[column] = table[column].dt.strftime("%Y-%m-%d %H:%M:%S")
+        table = table.reset_index(drop=False).to_dict(orient="records")
+        return table
+
+    @staticmethod
+    def convert_to_dataframe(data: Dict) -> pd.DataFrame:
+        if (len(data)) == 0:
+            return pd.DataFrame()
+        data: pd.DataFrame = pd.DataFrame(data)
+        return CommonTasks.process_OHLC_dataframe(data)

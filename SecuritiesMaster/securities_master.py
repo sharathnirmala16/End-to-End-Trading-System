@@ -3,8 +3,8 @@ import importlib
 import sqlalchemy
 import numpy as np
 import pandas as pd
-from concurrent import futures
 
+from concurrent import futures
 from sqlalchemy import sql, exc
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
@@ -17,6 +17,16 @@ from Commons.common_types import DownloadRequest
 from Commons.common_tasks import CommonTasks
 from celery_server import Tasks
 from celery import group
+
+
+import logging
+
+# Configure logging
+logging.basicConfig(
+    filename="example.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 
 class SecuritiesMaster:
@@ -110,7 +120,6 @@ class SecuritiesMaster:
             with self.__engine.connect() as conn:
                 conn.execute(stmt)
         except Exception as e:
-            print(e)
             raise e
 
     def get_row(
@@ -283,11 +292,11 @@ class SecuritiesMaster:
 
     @staticmethod
     def __complete_download_requests(
-        data_dict: Dict[str, Tuple[pd.DataFrame | None, List[DownloadRequest] | None]],
+        data_dict: Dict[str, Tuple[Dict | None, List[DownloadRequest] | None]],
         exchange: str,
         interval: int,
         vendor_obj: APIManager,
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> Union[Dict[str, pd.DataFrame], bool]:
         # grouping download requests by start and end date times
         download_requests: List[DownloadRequest] = []
 
@@ -299,13 +308,12 @@ class SecuritiesMaster:
 
         if len(download_requests) == 0:
             for ticker in data_dict:
-                data_dict[ticker] = data_dict[ticker][0]
-            return data_dict
+                data_dict[ticker] = CommonTasks.convert_to_dataframe(
+                    data_dict[ticker][0]
+                )
+            return data_dict, False
 
-        # ELSE
-        grouped_requests = SecuritiesMaster.__group_requests(
-            download_requests, interval
-        )
+        grouped_requests = SecuritiesMaster.__group_requests(download_requests)
 
         downloaded_data: Dict[str, pd.DataFrame] = {}
 
@@ -326,14 +334,22 @@ class SecuritiesMaster:
         for ticker in data_dict:
             if ticker in downloaded_data:
                 if data_dict[ticker][0] is None:
-                    data_dict[ticker][0] = downloaded_data[ticker]
+                    data_dict[ticker] = CommonTasks.process_OHLC_dataframe(
+                        downloaded_data[ticker]
+                    )
                 else:
                     data_dict[ticker] = pd.concat(
-                        [data_dict[ticker][0], downloaded_data[ticker]]
+                        [
+                            CommonTasks.convert_to_dataframe(data_dict[ticker][0]),
+                            CommonTasks.process_OHLC_dataframe(downloaded_data[ticker]),
+                        ]
                     )
             else:
-                data_dict[ticker] = data_dict[ticker][0]
-        return data_dict
+                data_dict[ticker] = CommonTasks.convert_to_dataframe(
+                    data_dict[ticker][0]
+                )
+
+        return data_dict, True
 
     def get_prices(
         self,
@@ -393,8 +409,6 @@ class SecuritiesMaster:
             )
             tickers = list(exchange_obj.get_tickers(index=index).keys())
 
-        # max_workers = len(tickers) if len(tickers) < os.cpu_count() else os.cpu_count()
-
         task_group: group = group(
             Tasks.get_ticker_prices_data.s(
                 ticker=ticker,
@@ -414,11 +428,100 @@ class SecuritiesMaster:
             str, Tuple[pd.DataFrame | None, List[DownloadRequest] | None]
         ] = dict(zip(tickers, results))
 
-        data_dict = self.__complete_download_requests(
+        data_dict, downloaded = self.__complete_download_requests(
             data_dict=data_dict,
             interval=interval,
             vendor_obj=vendor_obj,
             exchange=exchange,
         )
+
+        if cache_data and downloaded:
+            task_group: group = group(
+                Tasks.cache_data_to_db.s(
+                    data=CommonTasks.convert_to_json_serializable(data_dict[ticker]),
+                    ticker=ticker,
+                    vendor=vendor,
+                    vendor_ticker=vendor_obj.get_vendor_ticker(ticker, exchange),
+                    sector=vendor_obj.get_ticker_detail(ticker, exchange, "sector"),
+                    exchange=exchange,
+                    interval=interval,
+                    instrument=instrument,
+                )
+                for ticker in data_dict
+            )
+
+            results = task_group.apply_async().get()
+
+        return data_dict
+
+    def get_prices2(
+        self,
+        interval: int,
+        start_datetime: datetime,
+        end_datetime: datetime,
+        vendor: str,
+        exchange: str,
+        instrument: str,
+        tickers: List[str] = None,
+        index: str = None,
+        vendor_login_credentials: Dict[str, str] = {},
+        cache_data=False,
+        progress=False,
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Publically available method that the user can call to obtain
+        data for a list of tickers.
+        """
+        if index == "":
+            index = None
+        if tickers == []:
+            tickers = None
+        # Checking validity of inputs
+        if tickers is None and index is None:
+            raise Exception("Either 'tickers' of 'index' must be given")
+        if not self.__verify_vendor(vendor):
+            raise Exception(f"'{vendor}' not in vendor list.")
+        if not self.__verify_exchange(exchange):
+            raise Exception(f"'{exchange}' not in vendor list.")
+        if interval not in [interval.value for interval in INTERVAL]:
+            raise Exception(f"{interval} not in INTERVAL Enum.")
+        if instrument not in [instrument.value for instrument in INSTRUMENT]:
+            raise Exception(f"{instrument} not in INSTRUMENT Enum.")
+        if end_datetime < start_datetime:
+            raise Exception(
+                f"start_datetime({start_datetime}) must be before end_datetime({end_datetime})"
+            )
+        if end_datetime >= datetime.now():
+            raise Exception(
+                f"end_datetime({end_datetime}) must be at or before current datetime{datetime.now()}"
+            )
+
+        vendor_obj: APIManager = getattr(
+            importlib.import_module(
+                name=f"Vendors.{VENDOR(vendor).name.lower()}"
+            ),  # module name
+            f"{VENDOR(vendor).name[0:1] + VENDOR(vendor).name[1:].lower()}Data",  # class name
+        )(vendor_login_credentials)
+
+        if index is not None and tickers is None:
+            exchange_obj: IndexLoader = getattr(
+                importlib.import_module(
+                    name=f"Exchanges.{EXCHANGE(exchange).name.lower()}_tickers"
+                ),  # module name
+                f"{EXCHANGE(exchange).name}Tickers",  # class name
+            )
+            tickers = list(exchange_obj.get_tickers(index=index).keys())
+
+        data_dict = {}
+        for ticker in tickers:
+            data_dict[ticker] = Tasks.get_ticker_prices_data(
+                ticker=ticker,
+                interval=interval,
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
+                vendor=vendor,
+                exchange=exchange,
+                progress=progress,
+            )
 
         return data_dict
