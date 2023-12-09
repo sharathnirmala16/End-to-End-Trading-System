@@ -7,7 +7,7 @@ commands = {
             city VARCHAR(255) NULL, 
             country VARCHAR(255) NULL, 
             currency VARCHAR(64) NULL, 
-            time_zone_offset VARCHAR(16) NULL, 
+            time_zone_offset TIME NULL, 
             created_datetime TIMESTAMP NOT NULL, 
             last_updated_datetime TIMESTAMP NOT NULL
         );

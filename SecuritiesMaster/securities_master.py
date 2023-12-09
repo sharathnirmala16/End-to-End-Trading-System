@@ -1,22 +1,19 @@
-import os
+import random
+import string
 import importlib
 import sqlalchemy
 import numpy as np
 import pandas as pd
-from concurrent import futures
+
 
 from sqlalchemy import sql, exc
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 from SecuritiesMaster.sql_commands import commands
-from typing import Union, Dict, List, Tuple
+from typing import Union, Dict, List
 from Exchanges.index_loader import IndexLoader
 from Vendors.api_manager import APIManager
 from Commons.enums import *
-from Commons.common_types import DownloadRequest
-from Commons.common_tasks import CommonTasks
-from celery_server import Tasks
-from celery import group
 
 
 class SecuritiesMaster:
@@ -66,9 +63,7 @@ class SecuritiesMaster:
             )["table_name"].to_list()
             try:
                 tables.remove("users")
-                tables.remove("tokens")
-                tables.remove("celery_taskmeta")
-                tables.remove("celery_tasksetmeta")
+                tables.remove("token")
             except:
                 pass
             return tables
@@ -102,15 +97,10 @@ class SecuritiesMaster:
                 row_data["created_datetime"] = datetime.now()
             if "last_updated_datetime" in self.__get_column_names(table):
                 row_data["last_updated_datetime"] = datetime.now()
-            if "time_zone_offset" in self.__get_column_names(table):
-                row_data["time_zone_offset"] = "NULL"
             stmt = sqlalchemy.insert(table).values(row_data)
-            print(stmt)
-            print(row_data)
             with self.__engine.connect() as conn:
                 conn.execute(stmt)
         except Exception as e:
-            print(e)
             raise e
 
     def get_row(
@@ -258,17 +248,165 @@ class SecuritiesMaster:
                 },
             )
 
-    # NOTE: Finish this
-    def __complete_download_requests(
-        data_dict: Dict[str, Tuple[pd.DataFrame | None, List[DownloadRequest] | None]]
-    ) -> Dict[str, pd.DataFrame]:
-        # grouping download requests by start and end date times
-        common_downloads: Dict[str, pd.DataFrame] = {}
+    def __fill_missing_data(
+        self,
+        dataframe: pd.DataFrame,
+        ticker: str,
+        interval: int,
+        start_datetime: datetime,
+        end_datetime: datetime,
+        vendor: str,
+        vendor_obj: APIManager,
+        exchange: str,
+        instrument: str,
+        cache_data: bool,
+        progress: bool,
+    ) -> pd.DataFrame:
+        """
+        checks dataframe to ensure that all the data in the required date range is present.
+        checks to make sure that both the start date and the end date are within 5 days of specified start and end dates.
+        if missing, vendor object is used to download the data for the missing date range, if that fails or no data exists,
+        dataframe is returned as it is.
+        """
+        if type(dataframe.index[0]) != pd.Timestamp:
+            raise Exception(
+                f"Dataframe's index must be of type {type(pd.Timestamp(start_datetime))}, it is of type {type(dataframe.index[0])}"
+            )
 
-        for ticker in data_dict:
-            if data_dict[ticker][1] != None:
-                pass
-        pass
+        table_name: str = f"prices_{ticker.lower()}_{VENDOR(vendor).name.lower()}_{EXCHANGE(exchange).name.lower()}_{INTERVAL(interval).name.lower()}"
+        dataframe_start_datetime: datetime = dataframe.index[0].to_pydatetime()
+        dataframe_end_datetime: datetime = dataframe.index[-1].to_pydatetime()
+
+        data_appended: bool = False
+
+        if np.abs((dataframe_start_datetime - start_datetime).days) > 5:
+            data = vendor_obj.get_data(
+                interval=interval,
+                exchange=exchange,
+                start_datetime=start_datetime - timedelta(days=1),
+                end_datetime=dataframe_start_datetime,
+                tickers=[ticker],
+                replace_close=False,
+                progress=False,
+            )[ticker]
+            dataframe
+            index_name = dataframe.index.name
+            dataframe = pd.concat([dataframe, data])
+            dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
+            dataframe.index.name = index_name
+            data_appended = True
+
+        if np.abs((dataframe_end_datetime - end_datetime).days) > 5:
+            data = vendor_obj.get_data(
+                interval=interval,
+                exchange=exchange,
+                start_datetime=dataframe_end_datetime - timedelta(days=1),
+                end_datetime=end_datetime,
+                tickers=[ticker],
+                replace_close=False,
+                progress=False,
+            )[ticker]
+            index_name = dataframe.index.name
+            dataframe = pd.concat([dataframe, data])
+            dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
+            dataframe.index.name = index_name
+            data_appended = True
+
+        dataframe = vendor_obj.process_OHLC_dataframe(
+            dataframe=dataframe,
+            datetime_index=True,
+            replace_close=False,
+            capital_col_names=True,
+        )
+
+        if data_appended and cache_data:
+            self.__cache_data_to_db(
+                data=dataframe,
+                table_name=table_name,
+                ticker=ticker,
+                vendor=vendor,
+                vendor_obj=vendor_obj,
+                exchange=exchange,
+                interval=interval,
+                instrument=instrument,
+            )
+
+        return dataframe
+
+    def __get_ticker_prices_data(
+        self,
+        ticker: str,
+        interval: int,
+        start_datetime: datetime,
+        end_datetime: datetime,
+        vendor: str,
+        vendor_obj: APIManager,
+        exchange: str,
+        instrument: str,
+        cache_data=False,
+        progress=False,
+    ) -> pd.DataFrame:
+        table_name: str = f"prices_{ticker.lower()}_{VENDOR(vendor).name.lower()}_{EXCHANGE(exchange).name.lower()}_{INTERVAL(interval).name.lower()}"
+        data = pd.DataFrame()
+        try:
+            data: pd.DataFrame = pd.read_sql_query(
+                sql=f"""
+                    SELECT * FROM "{table_name}" 
+                    WHERE 
+                        "Datetime" >= '{start_datetime.strftime("%Y-%m-%d %H:%M:%S")}' 
+                        AND 
+                        "Datetime" <= '{end_datetime.strftime("%Y-%m-%d %H:%M:%S")}'
+                """,
+                con=self.__engine,
+            )
+            if data.empty:
+                raise ValueError
+            else:
+                data = self.__fill_missing_data(
+                    dataframe=vendor_obj.process_OHLC_dataframe(
+                        dataframe=data,
+                        datetime_index=True,
+                        replace_close=False,
+                        capital_col_names=True,
+                    ).sort_index(ascending=True),
+                    ticker=ticker,
+                    interval=interval,
+                    start_datetime=start_datetime,
+                    end_datetime=end_datetime,
+                    vendor=vendor,
+                    vendor_obj=vendor_obj,
+                    exchange=exchange,
+                    instrument=instrument,
+                    cache_data=cache_data,
+                    progress=progress,
+                )
+        except (ValueError, exc.ProgrammingError) as e:
+            data = vendor_obj.process_OHLC_dataframe(
+                dataframe=vendor_obj.get_data(
+                    interval=interval,
+                    exchange=exchange,
+                    start_datetime=start_datetime,
+                    end_datetime=end_datetime,
+                    tickers=[ticker],
+                    replace_close=False,
+                    progress=False,
+                )[ticker],
+                datetime_index=True,
+                replace_close=False,
+                capital_col_names=True,
+            ).sort_index(ascending=True)
+            if cache_data:
+                self.__cache_data_to_db(
+                    data=data,
+                    table_name=table_name,
+                    ticker=ticker,
+                    vendor=vendor,
+                    vendor_obj=vendor_obj,
+                    exchange=exchange,
+                    interval=interval,
+                    instrument=instrument,
+                )
+        return data
 
     def get_prices(
         self,
@@ -312,12 +450,12 @@ class SecuritiesMaster:
                 f"end_datetime({end_datetime}) must be at or before current datetime{datetime.now()}"
             )
 
-        # vendor_obj: APIManager = getattr(
-        #     importlib.import_module(
-        #         name=f"Vendors.{VENDOR(vendor).name.lower()}"
-        #     ),  # module name
-        #     f"{VENDOR(vendor).name[0:1] + VENDOR(vendor).name[1:].lower()}Data",  # class name
-        # )(vendor_login_credentials)
+        vendor_obj: APIManager = getattr(
+            importlib.import_module(
+                name=f"Vendors.{VENDOR(vendor).name.lower()}"
+            ),  # module name
+            f"{VENDOR(vendor).name[0:1] + VENDOR(vendor).name[1:].lower()}Data",  # class name
+        )(vendor_login_credentials)
 
         if index is not None and tickers is None:
             exchange_obj: IndexLoader = getattr(
@@ -328,27 +466,22 @@ class SecuritiesMaster:
             )
             tickers = list(exchange_obj.get_tickers(index=index).keys())
 
-        # max_workers = len(tickers) if len(tickers) < os.cpu_count() else os.cpu_count()
-
-        task_group: group = group(
-            Tasks.get_ticker_prices_data.s(
+        def ticker_prices_wrapper(ticker: str) -> pd.DataFrame:
+            return self.__get_ticker_prices_data(
                 ticker=ticker,
                 interval=interval,
                 start_datetime=start_datetime,
                 end_datetime=end_datetime,
                 vendor=vendor,
+                vendor_obj=vendor_obj,
                 exchange=exchange,
+                instrument=instrument,
+                cache_data=cache_data,
                 progress=progress,
             )
-            for ticker in tickers
+
+        data_dict: Dict[str, pd.DataFrame] = dict(
+            zip(tickers, map(ticker_prices_wrapper, tickers))
         )
-
-        results = task_group.apply_async().get()
-
-        data_dict: Dict[
-            str, Tuple[pd.DataFrame | None, List[DownloadRequest] | None]
-        ] = dict(zip(tickers, results))
-
-        # data_dict: Dict[str, pd.DataFrame]
 
         return data_dict

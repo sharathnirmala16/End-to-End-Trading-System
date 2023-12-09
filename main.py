@@ -202,77 +202,58 @@ async def logout(
     return {"message": "Logged out successfully"}
 
 
-@app.get("/get-details/{username}", tags=["Authentication"])
+@app.get("/get-details/{username}",tags=["Authentication"])
 @token_required
-async def get_details(
-    username: str,
-    session: Session = Depends(get_session),
-    dependencies=Depends(auth_bearer.JWTBearer()),
-):
-    user: models.User = (
-        session.query(models.User).filter(models.User.username == username).first()
-    )
-
+async def get_details(username:str,session: Session = Depends(get_session),
+    dependencies=Depends(auth_bearer.JWTBearer()),):
+    user:models.User=(session.query(models.User)
+        .filter(models.User.username == username)
+        .first())
+    
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
         )
+    
+    return{"name":user.name,"email":user.email}
 
-    return {"name": user.name, "email": user.email}
 
-
-@app.put("/change-email", tags=["Authentication"])
+@app.put("/change-email",tags=["Authentication"])
 @token_required
-async def change_email(
-    username: str,
-    new_email: str,
-    session: Session = Depends(get_session),
-    dependencies=Depends(auth_bearer.JWTBearer()),
-):
-    user: models.User = (
-        session.query(models.User).filter(models.User.username == username).first()
-    )
-
+async def change_email(username:str,new_email:str,session: Session = Depends(get_session),
+    dependencies=Depends(auth_bearer.JWTBearer()),):
+    
+    user:models.User=(session.query(models.User)
+        .filter(models.User.username == username)
+        .first())
+    
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
         )
-
-    session.execute(
-        sqlalchemy.text(
-            f"UPDATE users SET email = '{new_email}' WHERE username = '{username}'"
-        )
-    )
+    
+    session.execute(sqlalchemy.text(f"UPDATE users SET email = '{new_email}' WHERE username = '{username}'"))
     session.commit()
 
-    return {"message": "email changed successfully"}
+    return {"message":"email changed successfully"}
 
-
-@app.put("/change-name", tags=["Authentication"])
+@app.put("/change-name",tags=["Authentication"])
 @token_required
-async def change_name(
-    username: str,
-    new_name: str,
-    session: Session = Depends(get_session),
-    dependencies=Depends(auth_bearer.JWTBearer()),
-):
-    user: models.User = (
-        session.query(models.User).filter(models.User.username == username).first()
-    )
-
+async def change_name(username:str,new_name:str,session: Session = Depends(get_session),
+    dependencies=Depends(auth_bearer.JWTBearer()),):
+    user:models.User=(session.query(models.User)
+        .filter(models.User.username == username)
+        .first())
+    
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
         )
-
-    session.execute(
-        sqlalchemy.text(
-            f"UPDATE users SET name = '{new_name}' WHERE username = '{username}'"
-        )
-    )
+    
+    session.execute(sqlalchemy.text(f"UPDATE users SET name = '{new_name}' WHERE username = '{username}'"))
     session.commit()
 
-    return {"message": "name changed successfully"}
+    return {"message":"name changed successfully"}
 
 
 # SECURITIES_MASTER
@@ -438,19 +419,6 @@ async def get_prices(
             await asyncio.sleep(1)
         data: Dict[str, pd.DataFrame] = task.get()
 
-        data: Dict[str, pd.DataFrame] = securities_master.get_prices(
-            index=prices_request.index,
-            tickers=prices_request.tickers,
-            interval=prices_request.interval,
-            start_datetime=prices_request.start_datetime,
-            end_datetime=prices_request.end_datetime,
-            vendor=prices_request.vendor,
-            exchange=prices_request.exchange,
-            instrument=prices_request.instrument,
-            vendor_login_credentials=prices_request.vendor_login_credentials,
-            cache_data=prices_request.cache_data,
-        )
-
         for ticker in data:
             table = data[ticker].copy(deep=True)
             if pd.api.types.is_datetime64_any_dtype(table.index.to_series()):
@@ -463,3 +431,4 @@ async def get_prices(
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+

@@ -4,12 +4,16 @@ import yfinance as yf
 import importlib
 
 from Commons.enums import *
-from Commons.common_tasks import CommonTasks
 from Vendors.api_manager import APIManager
 from typing import Dict, List, ItemsView
 from datetime import datetime
 from Exchanges.index_loader import IndexLoader
 from enum import Enum
+
+
+class EXCHANGE_SUFFIX(Enum):
+    NSE = "NS"
+    BSE = "BO"
 
 
 class YFINANCE_BENCHMARK_INDEX(Enum):
@@ -38,17 +42,17 @@ class YahooData(APIManager):
 
     @staticmethod
     def __get_valid_interval(interval: int) -> str:
-        interval = INTERVAL(interval).name
+        intervals = {interval.name: interval.value for interval in INTERVAL}
         valid_intervals = {
-            "m1": "1m",
-            "m5": "5m",
-            "m15": "15m",
-            "m30": "30m",
-            "h1": "1h",
-            "d1": "1d",
-            "w1": "1wk",
-            "mo1": "1mo",
-            "y1": "1y",
+            intervals["m1"]: "1m",
+            intervals["m5"]: "5m",
+            intervals["m15"]: "15m",
+            intervals["m30"]: "30m",
+            intervals["h1"]: "1h",
+            intervals["d1"]: "1d",
+            intervals["w1"]: "1wk",
+            intervals["mo1"]: "1mo",
+            intervals["y1"]: "y1",
         }
 
         if interval not in valid_intervals:
@@ -103,22 +107,30 @@ class YahooData(APIManager):
                 progress=progress,
             )
         else:
-            raw_data: pd.DataFrame = yf.download(
-                tickers=list(formatted_tickers.values()),
-                start=start_date,
-                end=end_date,
-                interval=interval,
-                progress=False,
-                threads=True,
+
+            def download_individual_ticker(
+                formatted_ticker: ItemsView[str, str]
+            ) -> pd.DataFrame:
+                try:
+                    df = yf.download(
+                        tickers=formatted_ticker[1],
+                        start=start_date,
+                        end=end_date,
+                        interval=interval,
+                        progress=False,
+                    )
+                    return APIManager.process_OHLC_dataframe(
+                        dataframe=df, replace_close=replace_close
+                    )
+                except:
+                    return pd.DataFrame()
+
+            res_dict = dict(
+                zip(
+                    formatted_tickers.keys(),
+                    map(download_individual_ticker, formatted_tickers.items()),
+                )
             )
-            print(
-                f"Query: {list(formatted_tickers.values())}\n{start_date}\n{end_date}\n{interval}"
-            )
-            cols = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
-            for ticker, formatted_ticker in formatted_tickers.items():
-                res_dict[ticker] = pd.DataFrame()
-                for col in cols:
-                    res_dict[ticker][col] = raw_data[col][formatted_ticker]
 
         return res_dict
 
