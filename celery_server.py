@@ -1,47 +1,30 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from datetime import datetime
 from celery_config import celery
 from credentials import psql_credentials
-from SecuritiesMaster.securities_master import SecuritiesMaster
+from Commons.enums import *
+from Commons.common_types import DownloadRequest
+from Commons.common_tasks import CommonTasks
+from Vendors.api_manager import APIManager
 
-import time
+import pandas as pd
+import sqlalchemy
 
 
-securities_master = SecuritiesMaster(
-    psql_credentials["host"],
-    psql_credentials["port"],
-    psql_credentials["username"],
-    psql_credentials["password"],
-)
+def create_engine():
+    try:
+        url = f"postgresql+psycopg2://{psql_credentials['username']}:{psql_credentials['password']}@{psql_credentials['host']}:{psql_credentials['port']}/securities_master"
+        engine = sqlalchemy.create_engine(url, isolation_level="AUTOCOMMIT")
+        return engine
+    except Exception as e:
+        raise e
+
+
+engine = create_engine()
 
 
 class Tasks:
-    @staticmethod
-    @celery.task
-    def get_prices_async(
-        interval: int,
-        start_datetime: datetime,
-        end_datetime: datetime,
-        vendor: str,
-        exchange: str,
-        instrument: str,
-        vendor_login_credentials: Dict[str, str],
-        cache_data: bool,
-        index: str | None = None,
-        tickers: List[str] | None = None,
-    ) -> Dict[str, Dict[str, float]]:
-        return securities_master.get_prices(
-            interval=interval,
-            start_datetime=start_datetime,
-            end_datetime=end_datetime,
-            vendor=vendor,
-            exchange=exchange,
-            instrument=instrument,
-            vendor_login_credentials=vendor_login_credentials,
-            cache_data=cache_data,
-            index=index,
-            tickers=tickers,
-        )
+    pass
 
 
 if __name__ == "__main__":
