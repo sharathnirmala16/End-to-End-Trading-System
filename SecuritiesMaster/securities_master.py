@@ -9,14 +9,12 @@ from sqlalchemy import sql, exc
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 from SecuritiesMaster.sql_commands import commands
-from typing import Union, Dict, List, Tuple
+from typing import Union, Dict, List, Tuple, Set
 from Exchanges.index_loader import IndexLoader
 from Vendors.api_manager import APIManager
 from Commons.enums import *
-from Commons.common_types import DownloadRequest
+from Commons.common_types import DownloadRequest, UnprocessedData
 from Commons.common_tasks import CommonTasks
-from celery_server import Tasks
-from celery import group
 
 
 class SecuritiesMaster:
@@ -105,12 +103,9 @@ class SecuritiesMaster:
             if "time_zone_offset" in self.__get_column_names(table):
                 row_data["time_zone_offset"] = "NULL"
             stmt = sqlalchemy.insert(table).values(row_data)
-            print(stmt)
-            print(row_data)
             with self.__engine.connect() as conn:
                 conn.execute(stmt)
         except Exception as e:
-            print(e)
             raise e
 
     def get_row(
@@ -258,17 +253,133 @@ class SecuritiesMaster:
                 },
             )
 
-    # NOTE: Finish this
+    @staticmethod
+    def __group_requests(
+        requests: List[DownloadRequest],
+    ) -> List[List[DownloadRequest]]:
+        if len(requests) == 1:
+            return [requests]
+
+        sorted_requests = sorted(
+            requests, key=lambda req: (req.start_datetime, req.end_datetime)
+        )
+
+        result = []
+        i, j, n = 0, 1, len(requests)
+        while i < n:
+            temp = [sorted_requests[i]]
+            while j < n and temp[0] == sorted_requests[j]:
+                temp.append(sorted_requests[j])
+                j += 1
+            result.append(temp)
+            i = j
+            j += 1
+        return result
+
+    @staticmethod
     def __complete_download_requests(
-        data_dict: Dict[str, Tuple[pd.DataFrame | None, List[DownloadRequest] | None]]
-    ) -> Dict[str, pd.DataFrame]:
+        data_dict: Dict[str, UnprocessedData],
+        exchange: str,
+        interval: int,
+        vendor_obj: APIManager,
+    ) -> Union[Dict[str, pd.DataFrame], Set[str]]:
         # grouping download requests by start and end date times
-        common_downloads: Dict[str, pd.DataFrame] = {}
+        download_requests: List[DownloadRequest] = []
+
+        for unprocessed_request in data_dict.values():
+            if unprocessed_request.download_requests != None:
+                download_requests.extend(unprocessed_request.download_requests)
+
+        grouped_requests: List[List[DownloadRequest]] = []
+
+        if len(download_requests) == 0:
+            for ticker in data_dict:
+                data_dict[ticker] = data_dict[ticker].data
+            return data_dict, {}
+
+        grouped_requests = SecuritiesMaster.__group_requests(download_requests)
+
+        downloaded_data: Dict[str, pd.DataFrame] = {}
+        new_downloads = set()
+        for requests in grouped_requests:
+            downloaded_data.update(
+                vendor_obj.get_data(
+                    interval=interval,
+                    exchange=exchange,
+                    start_datetime=requests[0].start_datetime,
+                    end_datetime=requests[0].end_datetime,
+                    tickers=[request.ticker for request in requests],
+                    index=None,
+                    replace_close=False,
+                    progress=False,
+                )
+            )
 
         for ticker in data_dict:
-            if data_dict[ticker][1] != None:
-                pass
-        pass
+            if ticker in downloaded_data:
+                new_downloads.add(ticker)
+                if data_dict[ticker].data is None:
+                    data_dict[ticker] = CommonTasks.process_OHLC_dataframe(
+                        downloaded_data[ticker]
+                    )
+                else:
+                    data_dict[ticker] = pd.concat(
+                        [
+                            data_dict[ticker].data,
+                            CommonTasks.process_OHLC_dataframe(downloaded_data[ticker]),
+                        ]
+                    )
+            else:
+                data_dict[ticker] = data_dict[ticker].data
+
+        return data_dict, new_downloads
+
+    def __get_ticker_prices_data(
+        self,
+        ticker: str,
+        interval: int,
+        start_datetime: datetime,
+        end_datetime: datetime,
+        vendor: str,
+        exchange: str,
+    ) -> UnprocessedData:
+        table_name: str = f"prices_{ticker.lower()}_{VENDOR(vendor).name.lower()}_{EXCHANGE(exchange).name.lower()}_{INTERVAL(interval).name.lower()}"
+        data = pd.DataFrame()
+        result = UnprocessedData(None, None)
+        try:
+            data: pd.DataFrame = pd.read_sql_query(
+                sql=f"""
+                    SELECT * FROM "{table_name}" 
+                    WHERE 
+                        "Datetime" >= '{start_datetime.strftime("%Y-%m-%d %H:%M:%S")}' 
+                        AND 
+                        "Datetime" <= '{end_datetime.strftime("%Y-%m-%d %H:%M:%S")}'
+                    ORDER BY
+                    "Datetime"
+                """,
+                con=self.__engine,
+            )
+            if data.empty:
+                raise ValueError
+            else:
+                data = CommonTasks.process_OHLC_dataframe(
+                    dataframe=data,
+                    datetime_index=True,
+                    replace_close=False,
+                    capital_col_names=True,
+                )
+                result.data = data
+
+        except (ValueError, exc.ProgrammingError) as e:
+            result.download_requests = [
+                DownloadRequest(
+                    ticker=ticker,
+                    start_datetime=start_datetime,
+                    end_datetime=end_datetime,
+                )
+            ]
+
+        return result
 
     def get_prices(
         self,
@@ -312,13 +423,6 @@ class SecuritiesMaster:
                 f"end_datetime({end_datetime}) must be at or before current datetime{datetime.now()}"
             )
 
-        # vendor_obj: APIManager = getattr(
-        #     importlib.import_module(
-        #         name=f"Vendors.{VENDOR(vendor).name.lower()}"
-        #     ),  # module name
-        #     f"{VENDOR(vendor).name[0:1] + VENDOR(vendor).name[1:].lower()}Data",  # class name
-        # )(vendor_login_credentials)
-
         if index is not None and tickers is None:
             exchange_obj: IndexLoader = getattr(
                 importlib.import_module(
@@ -328,27 +432,58 @@ class SecuritiesMaster:
             )
             tickers = list(exchange_obj.get_tickers(index=index).keys())
 
-        # max_workers = len(tickers) if len(tickers) < os.cpu_count() else os.cpu_count()
+        vendor_obj: APIManager = getattr(
+            importlib.import_module(
+                name=f"Vendors.{VENDOR(vendor).name.lower()}"
+            ),  # module name
+            f"{VENDOR(vendor).name[0:1] + VENDOR(vendor).name[1:].lower()}Data",  # class name
+        )(vendor_login_credentials)
 
-        task_group: group = group(
-            Tasks.get_ticker_prices_data.s(
-                ticker=ticker,
-                interval=interval,
-                start_datetime=start_datetime,
-                end_datetime=end_datetime,
-                vendor=vendor,
-                exchange=exchange,
-                progress=progress,
-            )
-            for ticker in tickers
+        max_workers = len(tickers) if len(tickers) < os.cpu_count() else os.cpu_count()
+
+        data_dict: Dict[str, UnprocessedData] = {}
+        with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            tasks = {
+                executor.submit(
+                    self.__get_ticker_prices_data,
+                    ticker,
+                    interval,
+                    start_datetime,
+                    end_datetime,
+                    vendor,
+                    exchange,
+                ): ticker
+                for ticker in tickers
+            }
+
+            for future in futures.as_completed(tasks):
+                ticker = tasks[future]
+                data_dict[ticker] = future.result()
+
+        data_dict, downloaded = self.__complete_download_requests(
+            data_dict=data_dict,
+            exchange=exchange,
+            interval=interval,
+            vendor_obj=vendor_obj,
         )
 
-        results = task_group.apply_async().get()
-
-        data_dict: Dict[
-            str, Tuple[pd.DataFrame | None, List[DownloadRequest] | None]
-        ] = dict(zip(tickers, results))
-
-        # data_dict: Dict[str, pd.DataFrame]
+        if cache_data and downloaded:
+            with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                tasks = {
+                    executor.submit(
+                        self.__cache_data_to_db,
+                        data,
+                        f"prices_{ticker.lower()}_{VENDOR(vendor).name.lower()}_{EXCHANGE(exchange).name.lower()}_{INTERVAL(interval).name.lower()}",
+                        ticker,
+                        vendor,
+                        vendor_obj,
+                        exchange,
+                        interval,
+                        instrument,
+                    ): ticker
+                    for ticker, data in data_dict.items()
+                    if ticker in downloaded
+                }
+                futures.wait(tasks)
 
         return data_dict
