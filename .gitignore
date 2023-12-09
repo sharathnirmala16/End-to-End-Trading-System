@@ -3,3 +3,5 @@ credentials.py
 *.pyc
 Vendors/tests.py
 tests.py
+*.log
+example.log
