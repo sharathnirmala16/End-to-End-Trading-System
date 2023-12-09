@@ -42,3 +42,8 @@ class INTERVAL(Enum):
     w1 = 604800000
     mo1 = 2592000000
     y1 = 31104000000
+
+
+class EXCHANGE_SUFFIX(Enum):
+    NSE = "NS"
+    BSE = "BO"
