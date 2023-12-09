@@ -421,22 +421,6 @@ async def get_prices(
         prices_request.end_datetime = datetime.strptime(
             prices_request.end_datetime, "%Y-%m-%d %H:%M:%S"
         )
-        task: AsyncResult = Tasks.get_prices_async.delay(
-            index=prices_request.index,
-            tickers=prices_request.tickers,
-            interval=prices_request.interval,
-            start_datetime=prices_request.start_datetime,
-            end_datetime=prices_request.end_datetime,
-            vendor=prices_request.vendor,
-            exchange=prices_request.exchange,
-            instrument=prices_request.instrument,
-            vendor_login_credentials=prices_request.vendor_login_credentials,
-            cache_data=prices_request.cache_data,
-        )
-
-        while not task.ready():
-            await asyncio.sleep(1)
-        data: Dict[str, pd.DataFrame] = task.get()
 
         data: Dict[str, pd.DataFrame] = securities_master.get_prices(
             index=prices_request.index,
