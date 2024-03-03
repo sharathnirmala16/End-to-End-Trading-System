@@ -1,0 +1,2 @@
+class BreezeException(Exception):
+    pass

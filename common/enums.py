@@ -3,7 +3,7 @@ from enum import Enum
 
 class VENDOR(Enum):
     YAHOO = "Yahoo Finance"
-    ICICI = "ICICI Direct Breeze API"
+    BREEZE = "ICICI Direct Breeze API"
     ANGELBROKING = "Angel Broking Smart API"
 
 
@@ -42,8 +42,3 @@ class INTERVAL(Enum):
     w1 = 604800000
     mo1 = 2592000000
     y1 = 31104000000
-
-
-class EXCHANGE_SUFFIX(Enum):
-    NSE = "NS"
-    BSE = "BO"

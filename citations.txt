@@ -1,1 +1,2 @@
 FastAPI Login System with PSQL: https://medium.com/@chnarsimha986/fastapi-login-logout-changepassword-4c12e92d41e2
+Prefer to not use inplace when using pandas: https://stackoverflow.com/questions/43893457/understanding-inplace-true-in-pandas

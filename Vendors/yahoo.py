@@ -1,15 +1,16 @@
-import numpy as np
 import pandas as pd
 import yfinance as yf
-import importlib
 
-from Commons.enums import *
-from Commons.common_tasks import CommonTasks
-from Vendors.api_manager import APIManager
-from typing import Dict, List, ItemsView
-from datetime import datetime
-from Exchanges.index_loader import IndexLoader
 from enum import Enum
+from datetime import datetime
+from exchanges.exchange import Exchange
+from vendors.vendor import Vendor
+from common.enums import INTERVAL
+
+
+class EXCHANGE_SUFFIX(Enum):
+    NSE = "NS"
+    BSE = "BO"
 
 
 class YFINANCE_BENCHMARK_INDEX(Enum):
@@ -32,133 +33,133 @@ class YFINANCE_BENCHMARK_INDEX(Enum):
     NIFTYREALTY = "^CNXREALTY"
 
 
-class YahooData(APIManager):
-    def __init__(self, login_credentials: Dict[str, str]) -> None:
+class Yahoo(Vendor):
+    def __init__(self, login_credentials: dict[str, str]) -> None:
         super().__init__(login_credentials)
-
-    @staticmethod
-    def __get_valid_interval(interval: int) -> str:
-        interval = INTERVAL(interval).name
-        valid_intervals = {
-            "m1": "1m",
-            "m5": "5m",
-            "m15": "15m",
-            "m30": "30m",
-            "h1": "1h",
-            "d1": "1d",
-            "w1": "1wk",
-            "mo1": "1mo",
-            "y1": "1y",
+        self.__supported_intervals = {
+            INTERVAL.m1.name: "1m",
+            INTERVAL.m5.name: "5m",
+            INTERVAL.m15.name: "15m",
+            INTERVAL.m30.name: "30m",
+            INTERVAL.h1.name: "1h",
+            INTERVAL.d1.name: "1d",
+            INTERVAL.w1.name: "1wk",
+            INTERVAL.mo1.name: "1mo",
         }
 
-        if interval not in valid_intervals:
-            raise Exception(f"{int} interval not supported")
-        return valid_intervals[interval]
+    @property
+    def supported_intervals(self) -> dict[str, str]:
+        return self.__supported_intervals
 
     @staticmethod
-    def __download_data(
-        tickers: list,
-        exchange: str,
-        interval: int,
+    def get_adjusted_values(dataframe: pd.DataFrame):
+        df = dataframe.copy(deep=True)
+        adj_factor = df["Adj Close"] / df["Close"]
+
+        df["Open"] = adj_factor * df["Open"]
+        df["High"] = adj_factor * df["High"]
+        df["Low"] = adj_factor * df["Low"]
+        df["Close"] = adj_factor * df["Close"]
+        df["Volume"] = df["Volume"] / adj_factor
+
+        df = df[["Open", "High", "Low", "Close", "Volume"]].copy(deep=True)
+        return df
+
+    def get_data(
+        self,
+        interval: INTERVAL,
+        exchange: Exchange,
         start_datetime: datetime,
         end_datetime: datetime,
-        replace_close=False,
-        progress=False,
-    ) -> Dict[str, pd.DataFrame]:
-        if len(tickers) < 0:
-            raise Exception("tickers list is empty")
-        if end_datetime < start_datetime:
-            raise Exception(
-                f"start_datetime({start_datetime}) must be before end_datetime({end_datetime})"
+        symbols: list[str] = None,
+        index: str = None,
+        adjusted_prices: bool = False,
+        drop_adjusted_prices: bool = False,
+    ) -> dict[str, pd.DataFrame]:
+        """Gets the symbols in the index, downloads the data, for each of
+        them and processes those that are not empty before returning.\n
+        If adjusted_prices=True, then adjusted OHLCV data is returned, else
+        OHLCV data and Adj Close kept but dropped if drop_adjusted_prices=True."""
+        if symbols is None and index is None:
+            raise AttributeError(
+                "Either symbols list or an index from which symbols are derived have to be passed"
             )
-        interval = YahooData.__get_valid_interval(interval)
+        if index is not None and symbols is None:
+            symbols = exchange.get_symbols(index)
 
+        if len(symbols) < 0:
+            raise Exception(
+                "Empty symbols list, either failed to obtain symbols from index or passed symbols list is empty"
+            )
+
+        if end_datetime < start_datetime:
+            raise ValueError(
+                f"end_datetime({end_datetime}) cannot be lower that start_datetime({start_datetime})"
+            )
+
+        if interval.name not in self.__supported_intervals:
+            raise ValueError(
+                f"interval({interval.name}) is not supported for Yahoo Finance API."
+            )
+
+        interval: str = self.__supported_intervals[interval.name]
         start_date, end_date = start_datetime.strftime(
             "%Y-%m-%d"
         ), end_datetime.strftime("%Y-%m-%d")
 
-        res_dict: Dict[str, str] = {}
+        results: dict[str, pd.DataFrame] = {}
 
-        index_names = [index.name for index in YFINANCE_BENCHMARK_INDEX]
-        formatted_tickers = dict(
-            zip(
-                tickers,
+        formatted_tickers = {
+            symbol: ticker
+            for symbol, ticker in zip(
+                symbols,
                 map(
-                    (
-                        lambda ticker: f"{ticker}.{getattr(EXCHANGE_SUFFIX, EXCHANGE(exchange).name).value}"
-                        if ticker not in index_names
-                        else getattr(YFINANCE_BENCHMARK_INDEX, ticker).value
+                    lambda symbol: (
+                        f"{symbol}.{EXCHANGE_SUFFIX.__members__[exchange.abbreviation].value}"
+                        if symbol not in YFINANCE_BENCHMARK_INDEX._member_names_
+                        else YFINANCE_BENCHMARK_INDEX.__members__[symbol].value
                     ),
-                    tickers,
+                    symbols,
                 ),
             )
-        )
+        }
 
         if len(formatted_tickers) == 1:
-            res_dict[tickers[0]] = yf.download(
-                tickers=formatted_tickers[tickers[0]],
+            symbol = list(formatted_tickers.keys())[0]
+            ticker = formatted_tickers[symbol]
+            results[symbol] = yf.download(
+                tickers=[ticker],
                 start=start_date,
                 end=end_date,
                 interval=interval,
-                progress=progress,
+                progress=False,
             )
+            if adjusted_prices:
+                results[symbol] = self.get_adjusted_values(results[symbol])
+            elif not adjusted_prices and drop_adjusted_prices:
+                results[symbol] = results[symbol].drop("Adj Close", axis=1)
         else:
-            raw_data: pd.DataFrame = yf.download(
+            data: pd.DataFrame = yf.download(
                 tickers=list(formatted_tickers.values()),
                 start=start_date,
                 end=end_date,
                 interval=interval,
                 progress=False,
-                threads=True,
-            )
-            print(
-                f"Query: {list(formatted_tickers.values())}\n{start_date}\n{end_date}\n{interval}"
             )
             cols = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
-            for ticker, formatted_ticker in formatted_tickers.items():
-                res_dict[ticker] = pd.DataFrame()
+            for symbol, ticker in formatted_tickers.items():
+                results[symbol] = pd.DataFrame()
                 for col in cols:
-                    res_dict[ticker][col] = raw_data[col][formatted_ticker]
+                    results[symbol][col] = data[col][ticker]
+                if adjusted_prices:
+                    results[symbol] = self.get_adjusted_values(results[symbol])
+                elif not adjusted_prices and drop_adjusted_prices:
+                    results[symbol] = results[symbol].drop("Adj Close", axis=1)
 
-        return res_dict
+        return results
 
-    @staticmethod
-    def get_data(
-        interval: int,
-        start_datetime: datetime,
-        end_datetime: datetime,
-        exchange: str,
-        tickers: List[str] = None,
-        index: str = None,
-        replace_close=False,
-        progress=False,
-    ) -> Dict[str, pd.DataFrame]:
-        """Gets the tickers in the index, downloads the data, for each of them and processes those that are not empty before returning"""
-        if tickers is None and index is None:
-            raise Exception("Either 'tickers' of 'index' must be given")
-        if index is not None and tickers is None:
-            exchange_obj: IndexLoader = getattr(
-                importlib.import_module(
-                    name=f"Exchanges.{EXCHANGE(exchange).name.lower()}_tickers"
-                ),  # module name
-                f"{EXCHANGE(exchange).name}Tickers",  # class name
-            )
-            tickers = list(exchange_obj.get_tickers(index=index).keys())
+    def get_symbol_details(self, symbol: str, exchange: Exchange) -> dict:
+        return yf.Ticker(self.get_vendor_ticker(symbol, exchange)).info
 
-        return YahooData.__download_data(
-            tickers=tickers,
-            exchange=exchange,
-            interval=interval,
-            start_datetime=start_datetime,
-            end_datetime=end_datetime,
-            replace_close=replace_close,
-            progress=progress,
-        )
-
-    @staticmethod
-    def get_vendor_ticker(ticker: str, exchange: str) -> str:
-        return f"{ticker}.{getattr(EXCHANGE_SUFFIX, EXCHANGE(exchange).name).value}"
-
-    @staticmethod
-    def get_ticker_detail(ticker: str, exchange: str, detail: str) -> str:
-        return yf.Ticker(YahooData.get_vendor_ticker(ticker, exchange)).info[detail]
+    def get_vendor_ticker(self, symbol: str, exchange: Exchange) -> str:
+        return f"{symbol}.{EXCHANGE_SUFFIX.__members__[exchange.abbreviation].value}"
