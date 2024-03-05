@@ -6,6 +6,7 @@ import yfinance as yf
 import credentials
 from common.enums import *
 from common.exceptions import *
+from common.types import *
 from exchanges.nse import Nse
 from vendors.vendor import Vendor
 from vendors.yahoo import Yahoo
@@ -394,3 +395,94 @@ class TestBreeze:
 
     def test_get_symbol_details(self):
         assert len(self.breeze.get_symbol_details("TATAMOTORS", exchange=self.nse)) > 0
+
+
+class TestAssetsDataWithMocks:
+    def setup_method(self):
+        self.cols = ["Open", "High", "Low", "Close", "Volume"]
+        self.tickers = [
+            "HDFCBANK.NS",
+            "INFY.NS",
+            "RELIANCE.NS",
+            "TATAMOTORS.NS",
+            "TATASTEEL.NS",
+            "TCS.NS",
+        ]
+
+        self.mock_data = pd.read_csv(
+            "mock_data/mock_data.csv", index_col=0, parse_dates=True
+        )
+        self.mock_data_dict = {ticker: self.mock_data for ticker in self.tickers}
+        self.mock_assets_data = AssetsData(self.mock_data_dict)
+
+        self.mock_arr: np.ndarray[np.float64] = np.zeros(shape=(49, 31))
+        self.mock_arr[:, 0] = self.mock_data.index.values.astype(np.float64)
+        start, end = 1, 6
+        for ticker in self.tickers:
+            self.mock_arr[:, start:end] = self.mock_data_dict[ticker].values
+            start = end
+            end += 5
+
+    def dt_arr(self):
+        return self.mock_data.index.values.astype(np.float64)
+
+    def test_constructor(self):
+        arr: np.ndarray[np.float64] = self.mock_assets_data.data_array
+        assert np.array_equal(arr, self.mock_arr)
+
+    def test_indexing_int(self):
+        assert np.array_equal(self.mock_arr[0], self.mock_assets_data[0])
+        assert np.array_equal(self.mock_arr[-1], self.mock_assets_data[-1])
+
+    def test_indexing_ticker(self):
+        arr: np.ndarray[np.float64] = (
+            self.mock_data_dict[self.tickers[0]].reset_index().values
+        )
+        arr[:, 0] = self.dt_arr()
+        assert np.array_equal(arr, self.mock_assets_data[self.tickers[0]])
+
+    def test_indexing_column(self):
+        arr: np.ndarray[np.float64] = np.zeros(shape=(49, 7))
+        arr[:, 0] = self.dt_arr()
+        for i in range(1, len(self.tickers) + 1):
+            arr[:, i] = self.mock_data_dict[self.tickers[i - 1]][self.cols[-2]].values
+        assert np.array_equal(arr, self.mock_assets_data[self.cols[-2]])
+
+    def test_indexing_ticker_column(self):
+        arr: np.ndarray[np.float64] = np.zeros(shape=(49, 2))
+        arr[:, 0] = self.dt_arr()
+        arr[:, 1] = self.mock_data_dict[self.tickers[0]][self.cols[-1]].values
+        print()
+        assert np.array_equal(
+            arr, self.mock_assets_data[[self.tickers[0], self.cols[-1]]]
+        )
+
+    @pytest.mark.parametrize("index", [0, 3, -1])
+    def test_indexing_ticker_int(self, index):
+        arr: np.ndarray[np.float64] = np.zeros(shape=(1, 6))
+        arr[:, 0] = self.dt_arr()[index]
+        arr[:, 1:] = self.mock_data_dict[self.tickers[0]].values[index]
+
+        assert np.array_equal(arr, self.mock_assets_data[[self.tickers[0], index]])
+
+    @pytest.mark.parametrize("index", [0, -1])
+    def test_indexing_column_int(self, index):
+        arr: np.ndarray[np.float64] = np.zeros(shape=(1, 7))
+        arr[:, 0] = self.dt_arr()[index]
+        for i in range(1, len(self.tickers) + 1):
+            arr[:, i] = self.mock_data_dict[self.tickers[i - 1]][self.cols[0]].values[
+                index
+            ]
+
+        assert np.array_equal(arr, self.mock_assets_data[[self.cols[0], index]])
+
+    @pytest.mark.parametrize("index", [0, -1])
+    def test_indexing_ticker_column_int(self, index):
+        arr: np.ndarray[np.float64] = np.zeros(shape=(1, 2))
+        arr[:, 0] = self.dt_arr()[index]
+        arr[:, 1] = self.mock_data_dict[self.tickers[index]][self.cols[index]].values[
+            index
+        ]
+        assert np.array_equal(
+            arr, self.mock_assets_data[[self.tickers[index], self.cols[index], index]]
+        )
