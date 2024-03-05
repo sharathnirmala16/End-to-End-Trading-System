@@ -42,3 +42,10 @@ class INTERVAL(Enum):
     w1 = 604800000
     mo1 = 2592000000
     y1 = 31104000000
+
+
+class ORDER(Enum):
+    BUY = 1
+    SELL = 2
+    BUY_LIMIT = 3
+    SELL_LIMIT = 4

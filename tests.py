@@ -486,3 +486,87 @@ class TestAssetsDataWithMocks:
         assert np.array_equal(
             arr, self.mock_assets_data[[self.tickers[index], self.cols[index], index]]
         )
+
+
+class TestOrder:
+    def test_size(self):
+        with pytest.raises(ValueError):
+            Order(
+                symbol="TCS",
+                order_type=ORDER.BUY,
+                size=0,
+                placed=datetime.today(),
+            )
+
+    def test_order_type(self):
+        with pytest.raises(AttributeError):
+            Order(
+                symbol="TCS",
+                order_type="TEST",
+                size=1,
+                placed=datetime.today(),
+            )
+
+    @pytest.mark.parametrize(
+        "sl, tp, order_type", [(1, 0.9, ORDER.BUY), (0.9, 1, ORDER.SELL)]
+    )
+    def test_market_order_sl_tp(self, sl: float, tp: float, order_type: ORDER):
+        with pytest.raises(ValueError):
+            Order(
+                symbol="TCS",
+                order_type=order_type,
+                size=1,
+                placed=datetime.today(),
+                sl=sl,
+                tp=tp,
+            )
+
+    @pytest.mark.parametrize(
+        "sl, price, tp, error",
+        [
+            (0.1, None, 0.2, AttributeError),
+            (None, 0.2, 0.1, ValueError),
+            (0.2, 0.1, None, ValueError),
+            (0.3, 0.2, 0.1, ValueError),
+            (0.2, 0.1, 0.3, ValueError),
+            (0.1, 0.3, 0.2, ValueError),
+        ],
+    )
+    def test_limit_order_buy(
+        self, sl: float | None, price: float | None, tp: float | None, error: Exception
+    ):
+        with pytest.raises(error):
+            Order(
+                symbol="TCS",
+                order_type=ORDER.BUY_LIMIT,
+                size=1,
+                placed=datetime.today(),
+                sl=sl,
+                price=price,
+                tp=tp,
+            )
+
+    @pytest.mark.parametrize(
+        "sl, price, tp, error",
+        [
+            (0.1, None, 0.2, AttributeError),
+            (None, 0.1, 0.2, ValueError),
+            (0.1, 0.2, None, ValueError),
+            (0.1, 0.2, 0.3, ValueError),
+            (0.3, 0.1, 0.2, ValueError),
+            (0.2, 0.3, 0.1, ValueError),
+        ],
+    )
+    def test_limit_order_sell(
+        self, sl: float | None, price: float | None, tp: float | None, error: Exception
+    ):
+        with pytest.raises(error):
+            Order(
+                symbol="TCS",
+                order_type=ORDER.SELL_LIMIT,
+                size=1,
+                placed=datetime.today(),
+                sl=sl,
+                price=price,
+                tp=tp,
+            )
