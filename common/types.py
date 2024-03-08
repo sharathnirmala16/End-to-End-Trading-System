@@ -158,15 +158,54 @@ class AssetsData:
 
 
 class Order:
-    symbol: str
-    order_type: ORDER
-    size: float
-    price: float
-    sl: float | None
-    tp: float | None
-    placed: datetime
+    # __order_count is used to maintain unique order_ids
+    __order_count: int = 10000000
+    __order_id: int
+    __symbol: str
+    __order_type: ORDER
+    __size: float
+    __price: float
+    __sl: float | None
+    __tp: float | None
+    __placed: datetime
     # Can be used to pass additional data to Strategy Executor based on platform
-    params: dict | None
+    __params: dict | None
+
+    @property
+    def order_id(self) -> int:
+        return self.__order_id
+
+    @property
+    def symbol(self) -> str:
+        return self.__symbol
+
+    @property
+    def order_type(self) -> ORDER:
+        return self.__order_type
+
+    @property
+    def size(self) -> float:
+        return self.__size
+
+    @property
+    def price(self) -> float:
+        return self.__price
+
+    @property
+    def sl(self) -> float | None:
+        return self.__sl
+
+    @property
+    def tp(self) -> float | None:
+        return self.__tp
+
+    @property
+    def placed(self) -> datetime:
+        return self.__placed
+
+    @property
+    def params(self) -> float | None:
+        return self.__params
 
     def __init__(
         self,
@@ -230,11 +269,138 @@ class Order:
                     f"Failed condition sl={sl} > price={price} > tp={tp} for order type {order_type.name}"
                 )
 
-        self.symbol = symbol
-        self.order_type = order_type
-        self.size = size
-        self.price = price
-        self.sl = sl
-        self.tp = tp
-        self.placed = placed
-        self.params = params
+        Order.__order_count += 1
+        self.__order_id = Order.__order_count
+        self.__symbol = symbol
+        self.__order_type = order_type
+        self.__size = size
+        self.__price = price
+        self.__sl = sl
+        self.__tp = tp
+        self.__placed = placed
+        self.__params = params
+
+
+class Position:
+    # __position_count is used to maintain unique position_ids
+    __position_count: int = 20000000
+    __position_id: int
+    __symbol: str
+    __order_type: ORDER
+    __size: float
+    __price: float
+    __sl: float | None
+    __tp: float | None
+    __placed: datetime
+    __commission: float
+    # Can be used to pass additional data to Strategy Executor based on platform
+    __params: dict | None
+
+    @property
+    def position_id(self) -> int:
+        return self.__position_id
+
+    @property
+    def symbol(self) -> str:
+        return self.__symbol
+
+    @property
+    def order_type(self) -> ORDER:
+        return self.__order_type
+
+    @property
+    def size(self) -> float:
+        return self.__size
+
+    @property
+    def price(self) -> float:
+        return self.__price
+
+    @property
+    def sl(self) -> float | None:
+        return self.__sl
+
+    @property
+    def tp(self) -> float | None:
+        return self.__tp
+
+    @property
+    def placed(self) -> datetime:
+        return self.__placed
+
+    @property
+    def commission(self) -> float:
+        return self.__commission
+
+    @property
+    def params(self) -> float | None:
+        return self.__params
+
+    def __init__(
+        self, order: Order, price: float, placed: datetime, commission: float = 0
+    ) -> None:
+        if order is None:
+            raise AttributeError("Order must be passed to create position")
+        if price is None:
+            raise AttributeError("Position price can't be empty")
+        if placed is None:
+            raise AttributeError("Position placement date can't be empty")
+
+        Position.__position_count += 1
+        self.__position_id = Position.__position_count
+        self.__symbol = order.symbol
+        self.__order_type = order.order_type
+        self.__size = order.size
+        self.__price = price
+        self.__sl = order.sl
+        self.__tp = order.tp
+        self.__placed = placed
+        self.__commission = commission
+        self.__params = order.params
+
+
+class Trade:
+    symbol: str
+    order_type: ORDER
+    size: float
+    opening_price: float
+    closing_price: float
+    opening_datetime: datetime
+    closing_datetime: datetime
+    commission: float
+
+    def __init__(
+        self,
+        open_position: Position,
+        closing_price: float,
+        closing_datetime: datetime,
+        closing_commission: float = 0,
+    ) -> None:
+        if open_position is None:
+            raise AttributeError("Current position is needed for recording a trade")
+        if closing_price is None:
+            raise AttributeError("Closing price required for recording a trade")
+        if closing_datetime is None:
+            raise AttributeError("Closing datetime required for recording a trade")
+
+        self.symbol = open_position.symbol
+        self.order_type = open_position.order_type
+        self.size = open_position.size
+        self.opening_price = open_position.price
+        self.closing_price = closing_price
+        self.opening_datetime = open_position.placed
+        self.closing_datetime = closing_datetime
+        self.commission = open_position.commission + closing_commission
+
+    def get_as_dict(self) -> dict:
+        return {
+            "symbol": self.symbol,
+            "order_type": self.order_type,
+            "size": self.size,
+            "opening_price": self.opening_price,
+            "closing_price": self.closing_price,
+            "opening_datetime": self.opening_datetime,
+            "closing_datetime": self.closing_datetime,
+            "commission": self.commission,
+        }
+    

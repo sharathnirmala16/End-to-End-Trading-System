@@ -570,3 +570,96 @@ class TestOrder:
                 price=price,
                 tp=tp,
             )
+
+
+class TestPosition:
+    @pytest.mark.parametrize(
+        "order, price, placed, commission",
+        [
+            (None, 10, datetime.today(), 0),
+            (
+                Order(
+                    symbol="TCS", order_type=ORDER.BUY, placed=datetime.today(), price=1
+                ),
+                None,
+                datetime.today(),
+                0,
+            ),
+            (
+                Order(
+                    symbol="TCS", order_type=ORDER.BUY, placed=datetime.today(), price=1
+                ),
+                10,
+                None,
+                0,
+            ),
+        ],
+    )
+    def test_exceptions(
+        self, order: Order, price: float, placed: datetime, commission: float
+    ):
+        with pytest.raises(AttributeError):
+            Position(order, price, placed, commission)
+
+
+class TestTrade:
+
+    @pytest.mark.parametrize(
+        "open_position, closing_price, closing_datetime, closing_commission",
+        [
+            (None, 10, datetime.today(), 0),
+            (
+                Position(
+                    Order("TCS", ORDER.BUY, datetime.today(), 1, 10, 9, 11),
+                    10,
+                    datetime.today(),
+                    0,
+                ),
+                None,
+                datetime.today(),
+                0,
+            ),
+            (
+                Position(
+                    Order("TCS", ORDER.BUY, datetime.today(), 1, 10, 9, 11),
+                    10,
+                    datetime.today(),
+                    0,
+                ),
+                10,
+                None,
+                0,
+            ),
+        ],
+    )
+    def test_exceptions(
+        self,
+        open_position: Position,
+        closing_price: float,
+        closing_datetime: datetime,
+        closing_commission: float,
+    ):
+        with pytest.raises(AttributeError):
+            Trade(open_position, closing_price, closing_datetime, closing_commission)
+
+    def test_get_as_dict(self):
+        assert {
+            "symbol": "TCS",
+            "order_type": ORDER.BUY,
+            "size": 10,
+            "opening_price": 10,
+            "closing_price": 10,
+            "opening_datetime": datetime.today(),
+            "closing_datetime": datetime.today(),
+            "commission": 1,
+        } == Trade(
+            Position(
+                Order("TCS", ORDER.BUY, datetime.today(), 10, 10),
+                10,
+                datetime.today(),
+                0.5,
+            ),
+            10,
+            datetime.today(),
+            0.5,
+        ).get_as_dict()
