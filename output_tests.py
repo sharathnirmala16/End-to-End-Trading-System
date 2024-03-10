@@ -5,17 +5,19 @@ from exchanges.nse import Nse
 from vendors.breeze import Breeze
 from credentials import breeze_credentials
 from common.enums import INTERVAL
+from common.types import AssetsData
 
 nse = Nse()
 breeze = Breeze(breeze_credentials)
 
 data = breeze.get_data(
-    interval=INTERVAL.m5,
+    interval=INTERVAL.d1,
     exchange=nse,
     start_datetime=(datetime.today() - timedelta(days=15)),
     end_datetime=datetime.today(),
-    index="NIFTY50",
+    symbols=["RELIANCE", "TCS"],
 )
 
-print(data)
-print(len(data))
+
+assets_data = AssetsData(data)
+print(assets_data.index)

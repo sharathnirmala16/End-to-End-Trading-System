@@ -145,6 +145,10 @@ class AssetsData:
             )
 
     @property
+    def index(self) -> np.ndarray[np.float64]:
+        return self.__data_array[:, 0]
+
+    @property
     def data_array(self) -> np.ndarray[np.float64]:
         return self.__data_array
 
@@ -403,4 +407,3 @@ class Trade:
             "closing_datetime": self.closing_datetime,
             "commission": self.commission,
         }
-    

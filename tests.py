@@ -7,6 +7,7 @@ import credentials
 from common.enums import *
 from common.exceptions import *
 from common.types import *
+from common.commission import *
 from exchanges.nse import Nse
 from vendors.vendor import Vendor
 from vendors.yahoo import Yahoo
@@ -448,16 +449,17 @@ class TestAssetsDataWithMocks:
             arr[:, i] = self.mock_data_dict[self.tickers[i - 1]][self.cols[-2]].values
         assert np.array_equal(arr, self.mock_assets_data[self.cols[-2]])
 
-    def test_indexing_ticker_column(self):
+    @pytest.mark.parametrize("col_number", list(range(0, 5)))
+    def test_indexing_ticker_column(self, col_number):
         arr: np.ndarray[np.float64] = np.zeros(shape=(49, 2))
         arr[:, 0] = self.dt_arr()
-        arr[:, 1] = self.mock_data_dict[self.tickers[0]][self.cols[-1]].values
-        print()
+        arr[:, 1] = self.mock_data_dict[self.tickers[0]][self.cols[col_number]].values
+        print(self.mock_assets_data["Datetime"])
         assert np.array_equal(
-            arr, self.mock_assets_data[[self.tickers[0], self.cols[-1]]]
+            arr, self.mock_assets_data[[self.tickers[0], self.cols[col_number]]]
         )
 
-    @pytest.mark.parametrize("index", [0, 3, -1])
+    @pytest.mark.parametrize("index", list(range(-1, 5)))
     def test_indexing_ticker_int(self, index):
         arr: np.ndarray[np.float64] = np.zeros(shape=(1, 6))
         arr[:, 0] = self.dt_arr()[index]
@@ -465,7 +467,7 @@ class TestAssetsDataWithMocks:
 
         assert np.array_equal(arr, self.mock_assets_data[[self.tickers[0], index]])
 
-    @pytest.mark.parametrize("index", [0, -1])
+    @pytest.mark.parametrize("index", list(range(-1, 5)))
     def test_indexing_column_int(self, index):
         arr: np.ndarray[np.float64] = np.zeros(shape=(1, 7))
         arr[:, 0] = self.dt_arr()[index]
@@ -476,7 +478,7 @@ class TestAssetsDataWithMocks:
 
         assert np.array_equal(arr, self.mock_assets_data[[self.cols[0], index]])
 
-    @pytest.mark.parametrize("index", [0, -1])
+    @pytest.mark.parametrize("index", list(range(-1, 5)))
     def test_indexing_ticker_column_int(self, index):
         arr: np.ndarray[np.float64] = np.zeros(shape=(1, 2))
         arr[:, 0] = self.dt_arr()[index]
@@ -486,6 +488,9 @@ class TestAssetsDataWithMocks:
         assert np.array_equal(
             arr, self.mock_assets_data[[self.tickers[index], self.cols[index], index]]
         )
+
+    def test_index(self):
+        assert np.array_equal(self.mock_assets_data.index, self.dt_arr())
 
 
 class TestOrder:
@@ -663,3 +668,26 @@ class TestTrade:
             datetime.today(),
             0.5,
         ).get_as_dict()
+
+
+class TestCommissionModels:
+    def test_no_commission(self):
+        comm = NoCommission()
+        assert 0 == comm.calculate_commission(100, 10)
+
+    def test_flat_commission(self):
+        comm = FlatCommission(20)
+        assert 20 == comm.calculate_commission(100, 10)
+
+    def test_pct_commission(self):
+        with pytest.raises(ValueError):
+            PctCommission(-1)
+        comm = PctCommission(0.0005)
+        assert 100 * 10 * 0.0005 == comm.calculate_commission(100, 10)
+
+    def test_pct_flat_commission(self):
+        with pytest.raises(ValueError):
+            PctFlatCommission(-1, 20)
+        comm = PctFlatCommission(0.0005, 20)
+        assert 100 * 10 * 0.0005 == comm.calculate_commission(100, 10)
+        assert 20 == comm.calculate_commission(1000, 100)
