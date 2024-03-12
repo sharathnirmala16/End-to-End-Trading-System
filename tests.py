@@ -290,7 +290,7 @@ class TestBreeze:
                 symbols=symbols,
             )
         # adjusted prices not supported
-        with pytest.raises(BreezeException):
+        with pytest.raises(BreezeError):
             self.breeze.get_data(
                 interval=INTERVAL.d1,
                 exchange=self.nse,
@@ -300,7 +300,7 @@ class TestBreeze:
                 adjusted_prices=True,
             )
         # adjusted prices not supported
-        with pytest.raises(BreezeException):
+        with pytest.raises(BreezeError):
             self.breeze.get_data(
                 interval=INTERVAL.d1,
                 exchange=self.nse,
@@ -490,7 +490,8 @@ class TestAssetsDataWithMocks:
             index
         ]
         assert np.array_equal(
-            arr, self.mock_assets_data[[self.tickers[index], self.cols[index], index]]
+            arr[0],
+            self.mock_assets_data[[self.tickers[index], self.cols[index], index]],
         )
 
     def test_index(self):
@@ -504,6 +505,13 @@ class TestOrder:
                 symbol="TCS",
                 order_type=ORDER.BUY,
                 size=0,
+                placed=datetime.today(),
+            )
+        with pytest.raises(ValueError):
+            Order(
+                symbol="TCS",
+                order_type=ORDER.BUY,
+                size=-1,
                 placed=datetime.today(),
             )
 

@@ -128,7 +128,7 @@ class AssetsData:
                     self.__offset * self.__tickers_dict[key[0]]
                     + self.__cols_dict[key[1]],
                 ]
-                return sol
+                return sol[0]
             else:
                 raise Exception(
                     f"Invalid key, order of your key [{key}] doesn't match pattern [['ticker', 'price', 'int']]"

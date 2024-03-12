@@ -11,7 +11,7 @@ from breeze_connect import BreezeConnect
 from exchanges.exchange import Exchange
 from vendors.vendor import Vendor
 from common.enums import INTERVAL
-from common.exceptions import BreezeException
+from common.exceptions import BreezeError
 
 
 class Breeze(Vendor):
@@ -47,7 +47,7 @@ class Breeze(Vendor):
         if details["Status"] >= 200 and details["Status"] <= 299:
             return details
         else:
-            raise BreezeException(details["Error"])
+            raise BreezeError(details["Error"])
 
     @property
     def breeze(self):
@@ -110,7 +110,7 @@ class Breeze(Vendor):
             )
 
         if adjusted_prices or drop_adjusted_prices:
-            raise BreezeException("Adjusted Prices are not supported by Breeze yet.")
+            raise BreezeError("Adjusted Prices are not supported by Breeze yet.")
 
         start_date, end_date = start_datetime.strftime(
             "%Y-%m-%dT%H:%M:%SZ"
