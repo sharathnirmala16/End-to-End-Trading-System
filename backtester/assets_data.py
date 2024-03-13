@@ -7,36 +7,48 @@ class AssetsData:
     __symbols_dict: dict[str, int]
     __cols_dict: dict[str, int]
 
-    def __init__(self, data_dict: dict[str, pd.DataFrame]) -> None:
-        self.__symbols_dict = {
-            symbol: index for index, symbol in enumerate(data_dict.keys())
-        }
-        self.__cols_dict = {
-            "Datetime": 0,
-            "Open": 1,
-            "High": 2,
-            "Low": 3,
-            "Close": 4,
-            "Volume": 5,
-        }
-        self.__offset = len(self.__cols_dict) - 1
-        # shape is rows=number of rows in the first df, cols= 5 (for OHLCV) * number of symbols + 1 (for the Datetime)
-        self.__data_array = np.zeros(
-            shape=(
-                data_dict[self.symbols[0]].shape[0],
-                self.__offset * len(self.symbols) + 1,
+    def __init__(
+        self,
+        data_dict: dict[str, pd.DataFrame] | None = None,
+        symbols: list[str] | None = None,
+        buffer_size: int | None = None,
+        backtesting: bool = True,
+    ) -> None:
+        """In backtesting mode, uses historical data"""
+        if backtesting:
+            if data_dict is None:
+                raise AttributeError("For backtesting mode, data_dict must be passed")
+            self.__symbols_dict = {
+                symbol: index for index, symbol in enumerate(data_dict.keys())
+            }
+            self.__cols_dict = {
+                "Datetime": 0,
+                "Open": 1,
+                "High": 2,
+                "Low": 3,
+                "Close": 4,
+                "Volume": 5,
+            }
+            self.__offset = len(self.__cols_dict) - 1
+            # shape is rows=number of rows in the first df, cols= 5 (for OHLCV) * number of symbols + 1 (for the Datetime)
+            self.__data_array = np.zeros(
+                shape=(
+                    data_dict[self.symbols[0]].shape[0],
+                    self.__offset * len(self.symbols) + 1,
+                )
             )
-        )
 
-        # assiging datetime column to the zeroth column
-        self.__data_array[:, 0] = data_dict[self.symbols[0]].index.values.astype(
-            np.float64
-        )
-        start, end = 1, self.__offset + 1
-        for symbol in self.symbols:
-            self.__data_array[:, start:end] = data_dict[symbol].values
-            start = end
-            end = start + self.__offset
+            # assiging datetime column to the zeroth column
+            self.__data_array[:, 0] = data_dict[self.symbols[0]].index.values.astype(
+                np.float64
+            )
+            start, end = 1, self.__offset + 1
+            for symbol in self.symbols:
+                self.__data_array[:, start:end] = data_dict[symbol].values
+                start = end
+                end = start + self.__offset
+        else:
+            raise NotImplementedError("Deployment mode yet to be implemented")
 
     def __getitem__(self, key: int | str | list[str, str]) -> np.ndarray[np.float64]:
         if isinstance(key, int):

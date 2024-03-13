@@ -432,6 +432,10 @@ class TestAssetsDataWithMocks:
     def dt_arr(self):
         return self.mock_data.index.values.astype(np.float64)
 
+    def test_backtesting_mode_no_data(self):
+        with pytest.raises(AttributeError):
+            AssetsData()
+
     def test_constructor(self):
         arr: np.ndarray[np.float64] = self.mock_assets_data.data_array
         assert np.array_equal(arr, self.mock_arr)
