@@ -50,7 +50,7 @@ class AssetsData:
         else:
             raise NotImplementedError("Deployment mode yet to be implemented")
 
-    def __getitem__(self, key: int | str | list[str, str]) -> np.ndarray[np.float64]:
+    def __getitem__(self, key: int | str | list[str]) -> np.ndarray[np.float64]:
         if isinstance(key, int):
             return self.__data_array[key]
 
