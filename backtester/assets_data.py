@@ -4,12 +4,12 @@ import pandas as pd
 
 class AssetsData:
     __data_array: np.ndarray[np.float64]
-    __tickers_dict: dict[str, int]
+    __symbols_dict: dict[str, int]
     __cols_dict: dict[str, int]
 
     def __init__(self, data_dict: dict[str, pd.DataFrame]) -> None:
-        self.__tickers_dict = {
-            ticker: index for index, ticker in enumerate(data_dict.keys())
+        self.__symbols_dict = {
+            symbol: index for index, symbol in enumerate(data_dict.keys())
         }
         self.__cols_dict = {
             "Datetime": 0,
@@ -20,21 +20,21 @@ class AssetsData:
             "Volume": 5,
         }
         self.__offset = len(self.__cols_dict) - 1
-        # shape is rows=number of rows in the first df, cols= 5 (for OHLCV) * number of tickers + 1 (for the Datetime)
+        # shape is rows=number of rows in the first df, cols= 5 (for OHLCV) * number of symbols + 1 (for the Datetime)
         self.__data_array = np.zeros(
             shape=(
-                data_dict[self.tickers[0]].shape[0],
-                self.__offset * len(self.tickers) + 1,
+                data_dict[self.symbols[0]].shape[0],
+                self.__offset * len(self.symbols) + 1,
             )
         )
 
         # assiging datetime column to the zeroth column
-        self.__data_array[:, 0] = data_dict[self.tickers[0]].index.values.astype(
+        self.__data_array[:, 0] = data_dict[self.symbols[0]].index.values.astype(
             np.float64
         )
         start, end = 1, self.__offset + 1
-        for ticker in self.tickers:
-            self.__data_array[:, start:end] = data_dict[ticker].values
+        for symbol in self.symbols:
+            self.__data_array[:, start:end] = data_dict[symbol].values
             start = end
             end = start + self.__offset
 
@@ -43,11 +43,11 @@ class AssetsData:
             return self.__data_array[key]
 
         elif isinstance(key, str):
-            if key in self.tickers:
+            if key in self.symbols:
                 sol: np.ndarray[np.float64] = np.zeros(
                     shape=(self.__data_array.shape[0], self.__offset + 1)
                 )
-                index = self.__tickers_dict[key]
+                index = self.__symbols_dict[key]
                 sol[:, 0] = self.__data_array[:, 0]
                 sol[:, 1 : self.__offset + 1] = self.__data_array[
                     :,
@@ -59,22 +59,22 @@ class AssetsData:
 
             elif key in self.columns:
                 sol: np.ndarray[np.float64] = np.zeros(
-                    shape=(self.__data_array.shape[0], len(self.tickers) + 1)
+                    shape=(self.__data_array.shape[0], len(self.symbols) + 1)
                 )
                 sol[:, 0] = self.__data_array[:, 0]
                 index = self.__cols_dict[key]
-                for i in range(1, len(self.tickers) + 1):
+                for i in range(1, len(self.symbols) + 1):
                     sol[:, i] = self.__data_array[:, index]
                     index += self.__offset
                 return sol
 
             else:
                 raise Exception(
-                    f"Invalid key, neither in {self.tickers} or {self.columns}"
+                    f"Invalid key, neither in {self.symbols} or {self.columns}"
                 )
 
         elif isinstance(key, list) and len(key) == 2:
-            if key[0] in self.tickers and key[1] in self.columns:
+            if key[0] in self.symbols and key[1] in self.columns:
                 sol: np.ndarray[np.float64] = np.zeros(
                     shape=(self.__data_array.shape[0], 2)
                 )
@@ -82,15 +82,15 @@ class AssetsData:
                 sol[:, 1] = self.__data_array[
                     :,
                     (
-                        self.__offset * self.__tickers_dict[key[0]]
+                        self.__offset * self.__symbols_dict[key[0]]
                         + self.__cols_dict[key[1]]
                     ),
                 ]
                 return sol
 
-            elif key[0] in self.tickers and isinstance(key[1], int):
+            elif key[0] in self.symbols and isinstance(key[1], int):
                 sol: np.ndarray[np.float64] = np.zeros(shape=(1, self.__offset + 1))
-                index = self.__tickers_dict[key[0]]
+                index = self.__symbols_dict[key[0]]
                 sol[0, 0] = self.__data_array[key[1], 0]
                 sol[0, 1:] = self.__data_array[
                     key[1],
@@ -101,10 +101,10 @@ class AssetsData:
                 return sol
 
             elif key[0] in self.columns and isinstance(key[1], int):
-                sol: np.ndarray[np.float64] = np.zeros(shape=(1, len(self.tickers) + 1))
+                sol: np.ndarray[np.float64] = np.zeros(shape=(1, len(self.symbols) + 1))
                 col_offset = self.__cols_dict[key[0]]
                 sol[0, 0] = self.__data_array[key[1], 0]
-                for i in range(1, len(self.tickers) + 1):
+                for i in range(1, len(self.symbols) + 1):
                     sol[0, i] = self.__data_array[
                         key[1], (self.__offset * (i - 1) + col_offset)
                     ]
@@ -112,12 +112,12 @@ class AssetsData:
 
             else:
                 raise Exception(
-                    f"Invalid key, either or both {key} missing in {self.tickers} and {self.columns}"
+                    f"Invalid key, either or both {key} missing in {self.symbols} and {self.columns}"
                 )
 
         elif isinstance(key, list) and len(key) == 3:
             if (
-                key[0] in self.tickers
+                key[0] in self.symbols
                 and key[1] in self.columns
                 and isinstance(key[2], int)
             ):
@@ -125,20 +125,20 @@ class AssetsData:
                 sol[0, 0] = self.__data_array[key[2], 0]
                 sol[0, 1] = self.__data_array[
                     key[2],
-                    self.__offset * self.__tickers_dict[key[0]]
+                    self.__offset * self.__symbols_dict[key[0]]
                     + self.__cols_dict[key[1]],
                 ]
                 return sol[0]
             else:
                 raise Exception(
-                    f"Invalid key, order of your key [{key}] doesn't match pattern [['ticker', 'price', 'int']]"
+                    f"Invalid key, order of your key [{key}] doesn't match pattern [['symbol', 'price', 'int']]"
                 )
 
         else:
             raise Exception(
                 """Invalid indexing, these are the possible ways: 
-                ['int'], ['str'], [['ticker', 'price']], [['ticker', 'int']], 
-                [['price', 'int']], [['ticker', 'price', 'int']]"""
+                ['int'], ['str'], [['symbol', 'price']], [['symbol', 'int']], 
+                [['price', 'int']], [['symbol', 'price', 'int']]"""
             )
 
     @property
@@ -150,8 +150,8 @@ class AssetsData:
         return self.__data_array
 
     @property
-    def tickers(self) -> list[str]:
-        return list(self.__tickers_dict.keys())
+    def symbols(self) -> list[str]:
+        return list(self.__symbols_dict.keys())
 
     @property
     def columns(self) -> list[str]:

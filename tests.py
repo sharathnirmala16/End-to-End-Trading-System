@@ -17,6 +17,7 @@ from backtester.order import Order
 from backtester.position import Position
 from backtester.trade import Trade
 from backtester.commission import *
+from backtester.back_datafeed import BackDataFeed
 
 
 class TestNse:
@@ -703,3 +704,63 @@ class TestCommissionModels:
         comm = PctFlatCommission(0.0005, 20)
         assert 100 * 10 * 0.0005 == comm.calculate_commission(100, 10)
         assert 20 == comm.calculate_commission(1000, 100)
+
+
+class TestBackDataFeedWithMocks:
+    def setup_method(self):
+        self.cols = ["Open", "High", "Low", "Close", "Volume"]
+        self.tickers = [
+            "HDFCBANK.NS",
+            "INFY.NS",
+            "RELIANCE.NS",
+            "TATAMOTORS.NS",
+            "TATASTEEL.NS",
+            "TCS.NS",
+        ]
+
+        self.mock_data = pd.read_csv(
+            "mock_data/mock_data.csv", index_col=0, parse_dates=True
+        )
+        self.mock_data_dict = {ticker: self.mock_data for ticker in self.tickers}
+
+        self.back_data_feed = BackDataFeed(
+            self.mock_data_dict, list(self.mock_data_dict.keys())
+        )
+        self.mock_assets_data = AssetsData(self.mock_data_dict)
+
+        self.mock_arr: np.ndarray[np.float64] = np.zeros(shape=(49, 31))
+        self.mock_arr[:, 0] = self.mock_data.index.values.astype(np.float64)
+        start, end = 1, 6
+        for ticker in self.tickers:
+            self.mock_arr[:, start:end] = self.mock_data_dict[ticker].values
+            start = end
+            end += 5
+
+    def test_data_property(self):
+        assert np.array_equal(
+            self.mock_assets_data.data_array, self.back_data_feed.data.data_array
+        )
+
+    def test_bid_price(self):
+        assert (
+            self.back_data_feed.bid_price(self.tickers[-1])
+            == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
+                self.back_data_feed.idx
+            ]
+        )
+
+    def test_ask_price(self):
+        assert (
+            self.back_data_feed.ask_price(self.tickers[-1])
+            == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
+                self.back_data_feed.idx
+            ]
+        )
+
+    def test_spot_price(self):
+        assert (
+            self.back_data_feed.spot_price(self.tickers[-1])
+            == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
+                self.back_data_feed.idx
+            ]
+        )
