@@ -18,6 +18,7 @@ from backtester.position import Position
 from backtester.trade import Trade
 from backtester.commission import *
 from backtester.back_datafeed import BackDataFeed
+from backtester.indicators import Indicator, MovingAverage
 
 
 class TestNse:
@@ -767,4 +768,65 @@ class TestBackDataFeedWithMocks:
             == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
                 self.back_data_feed.idx
             ]
+        )
+
+
+class TestIndicator:
+    def setup_method(self):
+        self.nse = Nse()
+        self.vendor = Yahoo({})
+        self.symbols = ["HCLTECH", "ACC", "AUROPHARMA"]
+
+        self.data = self.vendor.get_data(
+            interval=INTERVAL.d1,
+            exchange=self.nse,
+            start_datetime=(datetime.today() - timedelta(days=365)),
+            end_datetime=datetime.today(),
+            symbols=self.symbols,
+            adjusted_prices=True,
+        )
+
+        self.assets_data = AssetsData(self.data)
+        self.indicator = MovingAverage(self.assets_data, self.symbols, period=9)
+
+        for symbol in self.symbols:
+            self.data[symbol]["MovingAverage"] = (
+                self.data[symbol]["Close"].rolling(9).mean()
+            )
+
+    @pytest.mark.parametrize("symbol", ["HCLTECH", "ACC", "AUROPHARMA"])
+    def test_indexing_symbol(self, symbol: str):
+        assert (
+            self.indicator[symbol][:, 1].shape
+            == self.data[symbol]["MovingAverage"].values.shape
+        )
+        assert (
+            self.indicator[symbol][:, 1][-1]
+            == self.data[symbol]["MovingAverage"].values[-1]
+        )
+
+    def test_indexing_int(self):
+        arr: np.ndarray[np.float64] = np.zeros(
+            shape=(self.assets_data.data_array.shape[0], 4)
+        )
+        arr[:, 0] = self.assets_data.index
+        for i, symbol in enumerate(self.symbols):
+            arr[:, i + 1] = self.data[symbol]["MovingAverage"].values
+
+        assert np.array_equal(arr[-1], self.indicator[-1])
+
+    def test_indexing_symbol_int(self):
+        arr: np.ndarray[np.float64] = np.zeros(
+            shape=(self.assets_data.data_array.shape[0], 4)
+        )
+        arr[:, 0] = self.assets_data.index
+        for i, symbol in enumerate(self.symbols):
+            arr[:, i + 1] = self.data[symbol]["MovingAverage"].values
+
+        assert np.array_equal(arr[-1, 0:2], self.indicator[["HCLTECH", -1]])
+        assert np.array_equal(
+            np.array([arr[-1, 0], arr[-1, 2]]), self.indicator[["ACC", -1]]
+        )
+        assert np.array_equal(
+            np.array([arr[-1, 0], arr[-1, 3]]), self.indicator[["AUROPHARMA", -1]]
         )
