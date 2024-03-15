@@ -741,6 +741,9 @@ class TestBackDataFeedWithMocks:
             start = end
             end += 5
 
+        self.ma_indicator = MovingAverage(self.mock_assets_data, self.tickers, period=3)
+        self.back_data_feed.add_indicator(self.ma_indicator, name="MA")
+
     def test_data_property(self):
         assert np.array_equal(
             self.mock_assets_data.data_array, self.back_data_feed.data.data_array
@@ -769,6 +772,12 @@ class TestBackDataFeedWithMocks:
                 self.back_data_feed.idx
             ]
         )
+
+    def test_indicators(self):
+        assert self.back_data_feed.indicators == {"MA": self.ma_indicator}
+
+    def test_indicator_error(self):
+        pass
 
 
 class TestIndicator:

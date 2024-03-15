@@ -6,6 +6,10 @@ from abc import ABC, abstractmethod
 
 
 class Indicator(ABC):
+    """NOTE: When overloading this class, always
+    add the line 'self._compute_indicator(...)'
+    at the end of the child class's constructor"""
+
     _indicator_array: np.ndarray[np.float64]
     _symbols_dict: dict[str, int]
     _assets_data: AssetsData
@@ -49,7 +53,7 @@ class Indicator(ABC):
                 return sol
 
             else:
-                raise IndexError(f"Invalid key, {key} not found in {self.symbols}")
+                raise KeyError(f"Invalid key, {key} not found in {self.symbols}")
 
         elif isinstance(key, list) and len(key) == 2:
             if key[0] in self.symbols and isinstance(key[1], int):
@@ -59,12 +63,12 @@ class Indicator(ABC):
                 return sol[0]
 
             else:
-                raise IndexError(
+                raise KeyError(
                     f"Invalid key, {key} should be of type [['symbol', 'int']] with the specified order"
                 )
 
         else:
-            raise IndexError(
+            raise KeyError(
                 """Invalid indexing, these are the possible ways:
                 ['int'], ['str'], [['symbol', 'int']]"""
             )

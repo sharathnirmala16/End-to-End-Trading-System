@@ -81,7 +81,7 @@ class AssetsData:
                 return sol
 
             else:
-                raise IndexError(
+                raise KeyError(
                     f"Invalid key, neither in {self.symbols} or {self.columns}"
                 )
 
@@ -123,7 +123,7 @@ class AssetsData:
                 return sol
 
             else:
-                raise IndexError(
+                raise KeyError(
                     f"Invalid key, either or both {key} missing in {self.symbols} and {self.columns}"
                 )
 
@@ -142,12 +142,12 @@ class AssetsData:
                 ]
                 return sol[0]
             else:
-                raise IndexError(
+                raise KeyError(
                     f"Invalid key, order of your key [{key}] doesn't match pattern [['symbol', 'price', 'int']]"
                 )
 
         else:
-            raise IndexError(
+            raise KeyError(
                 """Invalid indexing, these are the possible ways: 
                 ['int'], ['str'], [['symbol', 'price']], [['symbol', 'int']], 
                 [['price', 'int']], [['symbol', 'price', 'int']]"""
