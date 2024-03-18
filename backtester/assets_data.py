@@ -6,6 +6,7 @@ class AssetsData:
     __data_array: np.ndarray[np.float64]
     __symbols_dict: dict[str, int]
     __cols_dict: dict[str, int]
+    __backtesting: bool
 
     def __init__(
         self,
@@ -15,6 +16,7 @@ class AssetsData:
         backtesting: bool = True,
     ) -> None:
         """In backtesting mode, uses historical data"""
+        self.__backtesting = backtesting
         if backtesting:
             if data_dict is None:
                 raise AttributeError("For backtesting mode, data_dict must be passed")
@@ -168,3 +170,7 @@ class AssetsData:
     @property
     def columns(self) -> list[str]:
         return self.__cols_dict.keys()
+
+    @property
+    def backtesting(self) -> bool:
+        return self.__backtesting

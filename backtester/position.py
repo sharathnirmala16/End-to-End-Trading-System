@@ -17,6 +17,8 @@ class Position:
     __commission: float
     # Can be used to pass additional data to Strategy Executor based on platform
     __params: dict | None
+    # used to track the margin being used
+    __margin_utilized: float
 
     @property
     def position_id(self) -> int:
@@ -58,6 +60,14 @@ class Position:
     def params(self) -> float | None:
         return self.__params
 
+    @property
+    def margin_utilized(self) -> float:
+        return self.__margin_utilized
+
+    @margin_utilized.setter
+    def margin_utilized(self, margin_utilized: float) -> None:
+        self.__margin_utilized = margin_utilized
+
     def __init__(
         self, order: Order, price: float, placed: datetime, commission: float = 0
     ) -> None:
@@ -79,3 +89,4 @@ class Position:
         self.__placed = placed
         self.__commission = commission
         self.__params = order.params
+        self.__margin_utilized = order.margin_utilized

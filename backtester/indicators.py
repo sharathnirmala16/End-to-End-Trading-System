@@ -120,3 +120,40 @@ class MovingAverage(Indicator):
             self._assets_data[[symbol, self.__prices]][:, 1]
         )
         return prices_ser.rolling(self.__period).mean().values
+
+
+class ExponentialMovingAverage(Indicator):
+
+    def __init__(
+        self,
+        assets_data: AssetsData,
+        symbols: list[str],
+        period: int,
+        backtesting: bool = True,
+        prices: str = "Close",
+        **kwargs,
+    ) -> None:
+        super().__init__(assets_data, symbols, backtesting, **kwargs)
+        self.__period = period
+        self.__prices = prices
+
+        # ALWAYS add this line at the end of the child constructor to actually perform the compute
+        self._compute_indicator()
+
+    @property
+    def period(self) -> str:
+        return self.__period
+
+    @property
+    def prices(self) -> str:
+        return self.__prices
+
+    def indicator(self, symbol: str, **kwargs) -> np.ndarray[np.float64]:
+        prices_ser: pd.Series = pd.Series(
+            self._assets_data[[symbol, self.__prices]][:, 1]
+        )
+        return (
+            prices_ser.ewm(span=self.__period, min_periods=self.__period, adjust=False)
+            .mean()
+            .values
+        )

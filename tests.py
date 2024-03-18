@@ -18,7 +18,7 @@ from backtester.position import Position
 from backtester.trade import Trade
 from backtester.commission import *
 from backtester.back_datafeed import BackDataFeed
-from backtester.indicators import Indicator, MovingAverage
+from backtester.indicators import *
 
 
 class TestNse:
@@ -776,8 +776,60 @@ class TestBackDataFeedWithMocks:
     def test_indicators(self):
         assert self.back_data_feed.indicators == {"MA": self.ma_indicator}
 
-    def test_indicator_error(self):
-        pass
+    @pytest.mark.parametrize("key", [-1, -2, slice(-5, -1)])
+    def test_indicator(self, key: int | slice):
+        if isinstance(key, int):
+            self.back_data_feed.idx = 20
+            assert np.array_equal(
+                self.back_data_feed.indicator("INFY.NS", "MA", key),
+                self.ma_indicator[["INFY.NS", self.back_data_feed.idx + key + 1]],
+            )
+            self.back_data_feed.idx = 0
+
+        elif isinstance(key, slice):
+            self.back_data_feed.idx = 20
+            assert np.array_equal(
+                self.back_data_feed.indicator("INFY.NS", "MA", key),
+                self.ma_indicator["INFY.NS"][
+                    self.back_data_feed.idx
+                    + key.start
+                    + 1 : self.back_data_feed.idx
+                    + key.stop
+                    + 1
+                ],
+            )
+            self.back_data_feed.idx = 0
+
+    @pytest.mark.parametrize("key", [-2, slice(-5, -1)])
+    def test_indicator_error(self, key: int | slice):
+        with pytest.raises(KeyError):
+            self.back_data_feed.indicator("INFY.NS", "MA", key)
+
+    @pytest.mark.parametrize("key", [-1, -2, slice(-5, -1)])
+    def test_price(self, key: int | slice):
+        if isinstance(key, int):
+            self.back_data_feed.idx = 20
+            assert np.array_equal(
+                self.back_data_feed.price("TCS.NS", "Open", key),
+                self.mock_assets_data[
+                    ["TCS.NS", "Open", self.back_data_feed.idx + key + 1]
+                ],
+            )
+            self.back_data_feed.idx = 0
+
+        elif isinstance(key, slice):
+            self.back_data_feed.idx = 20
+            assert np.array_equal(
+                self.back_data_feed.price("TCS.NS", "Open", key),
+                self.mock_assets_data[["TCS.NS", "Open"]][
+                    self.back_data_feed.idx
+                    + key.start
+                    + 1 : self.back_data_feed.idx
+                    + key.stop
+                    + 1
+                ],
+            )
+            self.back_data_feed.idx = 0
 
 
 class TestIndicator:
@@ -838,4 +890,77 @@ class TestIndicator:
         )
         assert np.array_equal(
             np.array([arr[-1, 0], arr[-1, 3]]), self.indicator[["AUROPHARMA", -1]]
+        )
+
+
+class TestMovingAverage:
+
+    def setup_method(self):
+        self.nse = Nse()
+        self.vendor = Yahoo({})
+        self.symbols = ["HCLTECH", "ACC", "AUROPHARMA"]
+
+        self.data = self.vendor.get_data(
+            interval=INTERVAL.d1,
+            exchange=self.nse,
+            start_datetime=(datetime.today() - timedelta(days=365)),
+            end_datetime=datetime.today(),
+            symbols=self.symbols,
+            adjusted_prices=True,
+        )
+
+        self.assets_data = AssetsData(self.data)
+        self.indicator = MovingAverage(self.assets_data, self.symbols, period=9)
+
+        for symbol in self.symbols:
+            self.data[symbol]["MovingAverage"] = (
+                self.data[symbol]["Close"].rolling(9).mean()
+            )
+
+    @pytest.mark.parametrize("symbol", ["HCLTECH", "ACC", "AUROPHARMA"])
+    def test_equality(self, symbol: str):
+        print(self.indicator[symbol][:, 1])
+        print(self.data[symbol]["MovingAverage"].values)
+        assert np.allclose(
+            self.indicator[symbol][:, 1],
+            self.data[symbol]["MovingAverage"].values,
+            equal_nan=True,
+        )
+
+
+class TestExponentialMovingAverage:
+    def setup_method(self):
+        self.nse = Nse()
+        self.vendor = Yahoo({})
+        self.symbols = ["HCLTECH", "ACC", "AUROPHARMA"]
+
+        self.data = self.vendor.get_data(
+            interval=INTERVAL.d1,
+            exchange=self.nse,
+            start_datetime=(datetime.today() - timedelta(days=365)),
+            end_datetime=datetime.today(),
+            symbols=self.symbols,
+            adjusted_prices=True,
+        )
+
+        self.assets_data = AssetsData(self.data)
+        self.indicator = ExponentialMovingAverage(
+            self.assets_data, self.symbols, period=9
+        )
+
+        for symbol in self.symbols:
+            self.data[symbol]["ExponentialMovingAverage"] = (
+                self.data[symbol]["Close"]
+                .ewm(span=9, min_periods=9, adjust=False)
+                .mean()
+            )
+
+    @pytest.mark.parametrize("symbol", ["HCLTECH", "ACC", "AUROPHARMA"])
+    def test_equality(self, symbol: str):
+        print(self.indicator[symbol][:, 1])
+        print(self.data[symbol]["ExponentialMovingAverage"].values)
+        assert np.allclose(
+            self.indicator[symbol][:, 1],
+            self.data[symbol]["ExponentialMovingAverage"].values,
+            equal_nan=True,
         )

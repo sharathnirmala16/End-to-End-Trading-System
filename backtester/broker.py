@@ -5,26 +5,42 @@ from backtester.commission import Commission
 
 
 class Broker(ABC):
-    cash: float
-    leverage: float
-    leverage_multiplier: float
-    commission: Commission
+    _cash: float
+    _leverage: float
+    _commission: Commission
 
+    def __init__(self, cash: float, leverage: float, commission: Commission) -> None:
+        self._cash = cash
+        self._leverage = leverage
+        self._commission = commission
+
+    @property
     @abstractmethod
-    def bid_price(self, symbol: str) -> float:
+    def cash(self) -> float:
+        pass
+
+    @property
+    @abstractmethod
+    def leverage(self) -> float:
         pass
 
     @abstractmethod
-    def ask_price(self, symbol: str) -> float:
+    def commission(self) -> float:
+        pass
+
+    @property
+    @abstractmethod
+    def margin(self) -> float:
         pass
 
     @abstractmethod
-    def spot_price(self, symbol: str) -> float:
+    def place_order(self, order: Order) -> int:
+        """Perform any order validation and return order_id if enqueued"""
         pass
 
     @abstractmethod
-    def place_order(self, order: Order) -> bool:
-        """Perform any order validation and return true if order is enqueued"""
+    def cancel_order(self, order_id: int) -> bool:
+        """Perform any order validation and return order_id if enqueued"""
         pass
 
     @abstractmethod
@@ -33,7 +49,7 @@ class Broker(ABC):
         pass
 
     @abstractmethod
-    def close_position(self, position_id: str) -> None:
+    def close_position(self, position_id: str) -> bool:
         """Closes active position with given id"""
         pass
 

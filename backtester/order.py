@@ -15,6 +15,8 @@ class Order:
     __placed: datetime
     # Can be used to pass additional data to Strategy Executor based on platform
     __params: dict | None
+    # used to track the margin being used
+    __margin_utilized: float
 
     @property
     def order_id(self) -> int:
@@ -52,6 +54,14 @@ class Order:
     def params(self) -> float | None:
         return self.__params
 
+    @property
+    def margin_utilized(self) -> float:
+        return self.__margin_utilized
+
+    @margin_utilized.setter
+    def margin_utilized(self, margin_utilized: float) -> None:
+        self.__margin_utilized = margin_utilized
+
     def __init__(
         self,
         symbol: str,
@@ -63,8 +73,8 @@ class Order:
         tp: float | None = None,
         **params,
     ) -> None:
-        if size == 0:
-            raise ValueError(f"Order size = 0")
+        if size <= 0:
+            raise ValueError(f"Order size <= 0")
 
         if order_type.name not in ORDER._member_names_:
             raise ValueError(f"{order_type.name} not in {ORDER._member_names_}")
@@ -124,3 +134,4 @@ class Order:
         self.__tp = tp
         self.__placed = placed
         self.__params = params
+        self.__margin_utilized = 0
