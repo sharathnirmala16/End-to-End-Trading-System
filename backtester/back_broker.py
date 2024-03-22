@@ -4,7 +4,7 @@ from backtester.trade import Trade
 from backtester.broker import Broker
 from backtester.commission import Commission
 from backtester.datafeed import DataFeed
-from common.exceptions import OrderError, TradingError
+from common.exceptions import OrderError, BacktestError
 from common.enums import ORDER
 
 
@@ -34,7 +34,9 @@ class BackBroker(Broker):
     def __fill_order(self, order: Order) -> None:
         comm = self._commission.calculate_commission(order.price, order.size)
         if self._cash < comm:
-            raise TradingError(f"Cash: {self._cash} is not enough to continue trading.")
+            raise BacktestError(
+                f"Cash: {self._cash} is not enough to continue trading."
+            )
         else:
             self._cash -= comm
             self.__positions.append(
@@ -48,6 +50,9 @@ class BackBroker(Broker):
 
     def fill_orders(self) -> None:
         # commission is taken when order is filled
+        if len(self.__orders) == 0:
+            return None
+
         unfilled_orders: list[Order] = []
         for order in self.__orders:
             if (
@@ -66,7 +71,44 @@ class BackBroker(Broker):
                 unfilled_orders.append(order)
         self.__orders = unfilled_orders
 
-    def close_position(self, position_id: str) -> bool:
+    def __price_triggered(self, position: Position, current_price: float) -> bool:
+        current_price = self.__data_feed.spot_price(position.symbol)
+        if (
+            position.order_type == ORDER.BUY
+            or position.order_type == ORDER.BUY_LIMIT
+            and (current_price <= self.sl or current_price >= self.tp)
+        ):
+            return True
+        if (
+            position.order_type == ORDER.SELL
+            or position.order_type == ORDER.SELL_LIMIT
+            and (current_price >= self.sl or current_price <= self.tp)
+        ):
+            return True
+        return False
+
+    def close_positions_tp_sl(self) -> None:
+        if len(self.__positions) == 0:
+            return None
+
+        for index, position in enumerate(self.__positions):
+            if self.__price_triggered(position):
+                self.__close_position(index)
+
+    def __close_position(self, pos_index: int) -> bool:
+        position = self.__positions.pop(pos_index)
+        current_price = self.__data_feed.spot_price(position.symbol)
+        self.cash += (
+            (position.size * current_price)
+            - position.margin_utilized
+            - self._commission.calculate_commission(current_price, position.size)
+        )
+        # Correction for short orders
+        if position.order_type == ORDER.SELL or position.order_type == ORDER.SELL_LIMIT:
+            self._cash += 2 * (position.price - current_price)
+        return True
+
+    def close_position(self, position_id: int) -> bool:
         pos_index = -1
         for index, position in enumerate(self.__positions):
             if position.position_id == position_id:
@@ -75,22 +117,12 @@ class BackBroker(Broker):
 
         if pos_index == -1:
             return False
-
         else:
-            position = self.__positions.pop(pos_index)
-            current_price = self.__data_feed.spot_price(position.symbol)
-            self.cash += (
-                (position.size * current_price)
-                - position.margin_utilized
-                - self._commission.calculate_commission(current_price, position.size)
-            )
-            # Correction for short orders
-            if (
-                position.order_type == ORDER.SELL
-                or position.order_type == ORDER.SELL_LIMIT
-            ):
-                self._cash += 2 * (position.price - current_price)
-            return True
+            return self.__close_position(pos_index)
+
+    def close_all_positions(self) -> None:
+        for index, _ in enumerate(self.__positions):
+            self.__close_position(index)
 
     def order_cost(self, order: Order) -> float:
         return (order.price * order.size) + self.commission(order)
@@ -120,6 +152,11 @@ class BackBroker(Broker):
                 f"Available margin: {self._broker.margin} is not enough, order cost is {cost_no_comm + comm}"
             )
 
+    def __cancel_order(self, order_index: int) -> bool:
+        order = self.__orders.pop(order_index)
+        self._cash += (order.size * order.price) - order.margin_utilized
+        return True
+
     def cancel_order(self, order_id: int) -> bool:
         order_index = -1
         for index, order in enumerate(self.__orders):
@@ -131,9 +168,11 @@ class BackBroker(Broker):
             return False
 
         else:
-            self.__orders.pop(order_index)
-            self._cash += (order.size * order.price) - order.margin_utilized
-            return True
+            return self.__cancel_order(order_index)
+
+    def canel_all_orders(self) -> None:
+        for index, _ in enumerate(self.__orders):
+            self.__cancel_order(index)
 
     @property
     def margin(self) -> float:

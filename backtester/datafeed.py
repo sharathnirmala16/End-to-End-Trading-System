@@ -1,9 +1,11 @@
+from backtester.indicators import Indicator
 from abc import ABC, abstractmethod
 from datetime import datetime
 
 
 class DataFeed(ABC):
     _symbols: list[str]
+    _indicators: dict[str, Indicator]
 
     def __init__(self, symbols: list[str]) -> None:
         self._symbols = symbols
@@ -17,6 +19,11 @@ class DataFeed(ABC):
     def current_datetime(self) -> datetime:
         pass
 
+    @property
+    @abstractmethod
+    def indicators(self) -> dict[str, Indicator]:
+        pass
+
     @abstractmethod
     def bid_price(self, symbol: str) -> float:
         pass
@@ -27,4 +34,8 @@ class DataFeed(ABC):
 
     @abstractmethod
     def spot_price(self, symbol: str) -> float:
+        pass
+
+    @abstractmethod
+    def add_indicator(self, indicator: Indicator, name: str) -> None:
         pass

@@ -8,3 +8,7 @@ class OrderError(Exception):
 
 class TradingError(Exception):
     pass
+
+
+class BacktestError(Exception):
+    pass

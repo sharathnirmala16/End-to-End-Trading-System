@@ -10,13 +10,12 @@ from backtester.indicators import Indicator
 class BackDataFeed(DataFeed):
     __assets: AssetsData
     __idx: int
-    __indicators: dict[str, Indicator]
 
     def __init__(self, data_dict: dict[str, pd.DataFrame], symbols: list[str]) -> None:
         super().__init__(symbols)
         self.__assets = AssetsData(data_dict)
         self._symbols = self.__assets.symbols
-        self.__indicators = {}
+        self._indicators = {}
         self.__idx = 0
 
     @property
@@ -33,7 +32,7 @@ class BackDataFeed(DataFeed):
 
     @property
     def indicators(self) -> dict[str, Indicator]:
-        return self.__indicators
+        return self._indicators
 
     @property
     def current_datetime(self) -> datetime:
@@ -52,7 +51,7 @@ class BackDataFeed(DataFeed):
         return self.__assets[[symbol, "Close", self.__idx]][1]
 
     def add_indicator(self, indicator: Indicator, name: str) -> None:
-        self.__indicators[name] = indicator
+        self._indicators[name] = indicator
 
     def __check_key_validity(self, key: int | None) -> None:
         if key is not None and self.__idx + key + 1 < 0:
@@ -83,10 +82,10 @@ class BackDataFeed(DataFeed):
         self, symbol: str, indicator_name: str, key: int | slice
     ) -> float | np.ndarray[np.float64]:
         """Meant to be used inside a Strategy's iterator function like next() as the key is linked to index"""
-        if indicator_name not in self.__indicators:
-            raise KeyError(f"{indicator_name} not in {list(self.__indicators.keys())}")
+        if indicator_name not in self._indicators:
+            raise KeyError(f"{indicator_name} not in {list(self._indicators.keys())}")
 
-        return self.__indicators[indicator_name][symbol][self.__key_modifier(key)]
+        return self._indicators[indicator_name][symbol][self.__key_modifier(key)]
 
     def price(
         self, symbol: str, price: str, key: int | slice

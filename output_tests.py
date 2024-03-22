@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
@@ -8,6 +9,7 @@ from common.enums import INTERVAL
 from backtester.assets_data import AssetsData
 from backtester.back_datafeed import BackDataFeed
 from backtester.indicators import Indicator, MovingAverage
+from backtester import strategy
 
 nse = Nse()
 vendor = Yahoo(breeze_credentials)
@@ -23,13 +25,21 @@ data = vendor.get_data(
 
 assets_data = AssetsData(data)
 
-ma_indicator = MovingAverage(
-    assets_data=assets_data,
-    symbols=list(data.keys()),
-    period=9,
-)
 
-feed = BackDataFeed(data, list(data.keys()))
-feed.add_indicator(ma_indicator, name="MA")
+class MaCrossSignalIndicator(Indicator):
+    pass
 
-print(feed.indicator("TCS", "MA", slice(1, 10, 3)).shape[0])
+
+class MaCrossStrategy(strategy.Strategy):
+
+    def init(self) -> None:
+        self.sma = MovingAverage(
+            assets_data=assets_data, symbols=assets_data.symbols, period=10
+        )
+        self.lma = MovingAverage(
+            assets_data=assets_data, symbols=assets_data.symbols, period=40
+        )
+        self._data_feed.add_indicator()
+
+    def next(self) -> None:
+        return super().next()
