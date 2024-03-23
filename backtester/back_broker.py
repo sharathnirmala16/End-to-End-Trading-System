@@ -92,20 +92,22 @@ class BackBroker(Broker):
             return None
 
         for index, position in enumerate(self.__positions):
-            if self.__price_triggered(position):
+            if self.__price_triggered(
+                position, self.__data_feed.spot_price(position.symbol)
+            ):
                 self.__close_position(index)
 
     def __close_position(self, pos_index: int) -> bool:
         position = self.__positions.pop(pos_index)
         current_price = self.__data_feed.spot_price(position.symbol)
-        self.cash += (
-            (position.size * current_price)
-            - position.margin_utilized
-            - self._commission.calculate_commission(current_price, position.size)
-        )
+        comm = self._commission.calculate_commission(current_price, position.size)
+        self._cash += (position.size * current_price) - position.margin_utilized - comm
         # Correction for short orders
         if position.order_type == ORDER.SELL or position.order_type == ORDER.SELL_LIMIT:
             self._cash += 2 * (position.price - current_price)
+        self.__trades.append(
+            Trade(position, current_price, self.__data_feed.current_datetime, comm)
+        )
         return True
 
     def close_position(self, position_id: int) -> bool:
@@ -138,8 +140,9 @@ class BackBroker(Broker):
         )
 
     def place_order(self, order: Order) -> int:
+        price = self.__data_feed.spot_price(order.symbol)
         comm = self.commission(order)
-        cost_no_comm = order.size * order.price
+        cost_no_comm = order.size * price
 
         if self.margin > comm + cost_no_comm:
             cash_required = cost_no_comm * self._leverage

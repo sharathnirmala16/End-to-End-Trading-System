@@ -10,8 +10,9 @@ class Strategy:
     _broker: Broker
     _data_feed: DataFeed
 
-    def __init__(self, broker: Broker) -> None:
+    def __init__(self, broker: Broker, data_feed: DataFeed) -> None:
         self._broker = broker
+        self._data_feed = data_feed
 
     def buy(
         self,

@@ -1,6 +1,9 @@
-from backtester.indicators import Indicator
-from abc import ABC, abstractmethod
+import numpy as np
+
 from datetime import datetime
+from abc import ABC, abstractmethod
+from backtester.indicators import Indicator
+from backtester.assets_data import AssetsData
 
 
 class DataFeed(ABC):
@@ -17,6 +20,11 @@ class DataFeed(ABC):
     @property
     @abstractmethod
     def current_datetime(self) -> datetime:
+        pass
+
+    @property
+    @abstractmethod
+    def data(self) -> AssetsData:
         pass
 
     @property
@@ -38,4 +46,16 @@ class DataFeed(ABC):
 
     @abstractmethod
     def add_indicator(self, indicator: Indicator, name: str) -> None:
+        pass
+
+    @abstractmethod
+    def indicator(
+        self, symbol: str, indicator_name: str, key: int | slice
+    ) -> float | np.ndarray[np.float64]:
+        pass
+
+    @abstractmethod
+    def price(
+        self, symbol: str, price: str, key: int | slice
+    ) -> float | np.ndarray[np.float64]:
         pass

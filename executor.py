@@ -22,7 +22,6 @@ class BacktestExecutor:
     def __init__(
         self,
         strategy: Type[Strategy],
-        broker: Type[BackBroker],
         data: dict[str, pd.DataFrame],
         cash: float,
         leverage: float,
@@ -30,20 +29,20 @@ class BacktestExecutor:
     ) -> None:
         self.__idx = 0
         self.__data_feed = BackDataFeed(data_dict=data, symbols=list(data.keys()))
-        self.__results["Starting Cash [$]"] = cash
-        self.__broker = broker(
+        self.__results = {"Starting Cash [$]": cash}
+        self.__broker = BackBroker(
             cash=cash,
             leverage=leverage,
             commission=commission,
             data_feed=self.__data_feed,
         )
-        self.__strategy = strategy(self.__broker)
+        self.__strategy = strategy(self.__broker, self.__data_feed)
         self.__strategy.init()
 
         self.__compute_idx_offset()
 
     def __compute_idx_offset(self) -> None:
-        arr = self.__data_feed.indicators[self.__data_feed.symbols].indicator_array
+        arr = next(iter(self.__data_feed.indicators.values())).indicator_array
         while arr[self.__idx, 1] == np.nan and self.__idx <= arr.shape[0] - 1:
             self.__idx += 1
         if self.__idx == arr.shape[0] - 1:
@@ -59,9 +58,8 @@ class BacktestExecutor:
         return self.__results
 
     def run(self) -> dict:
-        length: int = self.__data_feed.indicators[
-            self.__data_feed.symbols
-        ].indicator_array.shape[0]
+        length: int = self.__data_feed.data.data_array.shape[0]
+        self.__synchronize_indexes()
         while self.__idx < length - 1:
             self.__broker.close_positions_tp_sl()
             self.__strategy.next()

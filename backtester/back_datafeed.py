@@ -1,3 +1,4 @@
+import pytz
 import numpy as np
 import pandas as pd
 
@@ -36,7 +37,7 @@ class BackDataFeed(DataFeed):
 
     @property
     def current_datetime(self) -> datetime:
-        return datetime.fromtimestamp(int(self.__assets.index[self.__idx]))
+        return datetime.fromtimestamp(self.__assets.index[self.__idx] / 1e9)
 
     def bid_price(self, symbol: str) -> float:
         """Set to close price as bid-ask price not given by most vendors as  of now"""
