@@ -29,7 +29,7 @@ class Analyzer:
         ) = self.win_stats()
         self.__results["Expected Value [%]"] = (
             (self.__results["Win Rate [%]"] * self.__results["Avg Win [%]"])
-            - ((100 - self.__results["Win Rate [%]"]) * self.__results["Avg Loss [%]"])
+            + ((100 - self.__results["Win Rate [%]"]) * self.__results["Avg Loss [%]"])
         ) / 100
         (
             self.__results["Avg Trade Duration [d]"],
@@ -77,6 +77,9 @@ class Analyzer:
 
     def total_trade_duration(self, result_unit: str = "days") -> float:
         """result_unit: str can be any of the following: ["minutes", "hours", "days", "years"]"""
+        # NOTE: Rather than trades table, maybe use equity curve's index?
+        if self.__results["Trades"].empty:
+            return 0
         start: datetime = self.__results["Trades"]["Opening Datetime"].min()
         end: datetime = self.__results["Trades"]["Closing Datetime"].max()
         match result_unit:

@@ -74,16 +74,12 @@ class BackBroker(Broker):
     def __price_triggered(self, position: Position, current_price: float) -> bool:
         current_price = self.__data_feed.spot_price(position.symbol)
         if (
-            position.order_type == ORDER.BUY
-            or position.order_type == ORDER.BUY_LIMIT
-            and (current_price <= self.sl or current_price >= self.tp)
-        ):
+            position.order_type == ORDER.BUY or position.order_type == ORDER.BUY_LIMIT
+        ) and (current_price <= position.sl or current_price >= position.tp):
             return True
         if (
-            position.order_type == ORDER.SELL
-            or position.order_type == ORDER.SELL_LIMIT
-            and (current_price >= self.sl or current_price <= self.tp)
-        ):
+            position.order_type == ORDER.SELL or position.order_type == ORDER.SELL_LIMIT
+        ) and (current_price >= position.sl or current_price <= position.tp):
             return True
         return False
 
@@ -151,9 +147,10 @@ class BackBroker(Broker):
             self.__orders.append(order)
             return order.order_id
         else:
-            raise OrderError(
-                f"Available margin: {self._broker.margin} is not enough, order cost is {cost_no_comm + comm}"
-            )
+            # raise OrderError(
+            #     f"Available margin: {self.margin} is not enough, order cost is {cost_no_comm + comm}"
+            # )
+            return -1
 
     def __cancel_order(self, order_index: int) -> bool:
         order = self.__orders.pop(order_index)

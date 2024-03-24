@@ -28,7 +28,7 @@ vendor = Yahoo(breeze_credentials)
 data = {
     "RELIANCE": pd.read_csv(
         "nifty50_m1/RELIND.csv", index_col=0, parse_dates=True
-    ).head(5000)
+    ).head(50000)
 }
 
 assets_data = AssetsData(data)
@@ -83,9 +83,9 @@ class MaCrossSignalIndicator(Indicator):
 
 class MaCrossStrategy(strategy.Strategy):
     sma_period: int = 10
-    lma_period: int = 20
-    sl_perc: float = 5 / 100
-    tp_perc: float = 5 / 100
+    lma_period: int = 40
+    sl_perc: float = 3 / 100
+    tp_perc: float = 9 / 100
 
     def init(self) -> None:
         self._data_feed.add_indicator(
@@ -127,6 +127,9 @@ class MaCrossStrategy(strategy.Strategy):
                 )[1]
                 == -1
             ):
+                size = (
+                    self._broker.margin // self._data_feed.spot_price(symbol)
+                ) * 0.25
                 self.sell(
                     symbol=symbol,
                     order_type=ORDER.SELL,
@@ -138,7 +141,7 @@ class MaCrossStrategy(strategy.Strategy):
 
 
 start = time.time()
-bt = BacktestExecutor(MaCrossStrategy, data, 10000, 2, NoCommission())
+bt = BacktestExecutor(MaCrossStrategy, data, 10000, 5, NoCommission())
 res = bt.run(progress_bar=True)
 end = time.time()
 
