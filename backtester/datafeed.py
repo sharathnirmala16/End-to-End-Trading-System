@@ -7,11 +7,18 @@ from backtester.assets_data import AssetsData
 
 
 class DataFeed(ABC):
+    _idx: int
+    _assets: AssetsData
     _symbols: list[str]
     _indicators: dict[str, Indicator]
 
     def __init__(self, symbols: list[str]) -> None:
         self._symbols = symbols
+
+    @property
+    @abstractmethod
+    def idx(self) -> int:
+        pass
 
     @property
     def symbols(self) -> list[str]:

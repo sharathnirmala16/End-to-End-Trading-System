@@ -178,6 +178,16 @@ class BackBroker(Broker):
             self.__cancel_order(index)
 
     @property
+    def current_equity(self) -> float:
+        position_equity = 0
+        for position in self.__positions:
+            position_equity += (
+                position.size * self.__data_feed.spot_price(position.symbol)
+                - position.margin_utilized
+            )
+        return position_equity + self._cash
+
+    @property
     def margin(self) -> float:
         return self._cash * self.__leverage_multiplier
 

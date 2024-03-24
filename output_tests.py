@@ -16,14 +16,20 @@ from executor import BacktestExecutor
 nse = Nse()
 vendor = Yahoo(breeze_credentials)
 
-data = vendor.get_data(
-    interval=INTERVAL.d1,
-    exchange=nse,
-    start_datetime=(datetime.today() - timedelta(days=365)),
-    end_datetime=datetime.today(),
-    symbols=["RELIANCE"],
-    adjusted_prices=True,
-)
+# data = vendor.get_data(
+#     interval=INTERVAL.d1,
+#     exchange=nse,
+#     start_datetime=(datetime.today() - timedelta(days=365)),
+#     end_datetime=datetime.today(),
+#     symbols=["RELIANCE"],
+#     adjusted_prices=True,
+# )
+
+data = {
+    "RELIANCE": pd.read_csv(
+        "nifty50_m1/RELIND.csv", index_col=0, parse_dates=True
+    ).head(5000)
+}
 
 assets_data = AssetsData(data)
 
@@ -82,12 +88,6 @@ class MaCrossStrategy(strategy.Strategy):
     tp_perc: float = 5 / 100
 
     def init(self) -> None:
-        self.sma = MovingAverage(
-            assets_data=assets_data, symbols=assets_data.symbols, period=self.sma_period
-        )
-        self.lma = MovingAverage(
-            assets_data=assets_data, symbols=assets_data.symbols, period=self.lma_period
-        )
         self._data_feed.add_indicator(
             MaCrossSignalIndicator(
                 self._data_feed.data,
@@ -137,7 +137,10 @@ class MaCrossStrategy(strategy.Strategy):
                 )
 
 
-bt = BacktestExecutor(MaCrossStrategy, data, 10000, 1, NoCommission())
-res = bt.run()
+start = time.time()
+bt = BacktestExecutor(MaCrossStrategy, data, 10000, 2, NoCommission())
+res = bt.run(progress_bar=True)
+end = time.time()
 
 print(res)
+print(f"Time taken: {end - start}s")

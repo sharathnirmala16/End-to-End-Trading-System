@@ -1,3 +1,4 @@
+import progressbar
 import numpy as np
 import pandas as pd
 
@@ -8,6 +9,7 @@ from backtester.back_broker import BackBroker
 from backtester.datafeed import DataFeed
 from backtester.back_datafeed import BackDataFeed
 from backtester.commission import Commission
+from backtester.analytics import Analyzer
 from typing import Type
 
 
@@ -16,6 +18,7 @@ class BacktestExecutor:
     __strategy: Type[Strategy]
     __broker: Type[BackBroker]
     __data_feed: BackDataFeed
+    __equity_curve: list[list]
     __results: dict
     __idx: int
 
@@ -28,6 +31,7 @@ class BacktestExecutor:
         commission: Commission,
     ) -> None:
         self.__idx = 0
+        self.__equity_curve = []
         self.__data_feed = BackDataFeed(data_dict=data, symbols=list(data.keys()))
         self.__results = {"Starting Cash [$]": cash}
         self.__broker = BackBroker(
@@ -52,15 +56,53 @@ class BacktestExecutor:
         self.__broker.idx = self.__idx
         self.__data_feed.idx = self.__idx
 
-    def __compute_results(self) -> dict:
+    def __compute_results(self) -> dict[str, pd.DataFrame]:
         self.__results["Ending Cash [$]"] = self.__broker.cash
         self.__results["Trades"] = self.__broker.trades
-        return self.__results
+        eq_curve = np.array(self.__equity_curve)
+        self.__results["Equity Curve [$]"] = pd.Series(
+            eq_curve[:, 1], index=eq_curve[:, 0]
+        )
+        return Analyzer(self.__results).results
 
-    def run(self) -> dict:
+    def __run_pgbar(self) -> dict[str, pd.DataFrame]:
         length: int = self.__data_feed.data.data_array.shape[0]
         self.__synchronize_indexes()
+
+        widgets = [
+            " [",
+            progressbar.Timer(),
+            "] ",
+            " ",
+            progressbar.Percentage(),
+            " ",
+            progressbar.GranularBar(),
+            " ",
+            progressbar.AdaptiveETA(),
+        ]
+        with progressbar.ProgressBar(max_value=length, widgets=widgets) as bar:
+            while self.__idx < length - 1:
+                self.__equity_curve.append(
+                    [self.__data_feed.current_datetime, self.__broker.current_equity]
+                )
+                self.__broker.close_positions_tp_sl()
+                self.__strategy.next()
+                self.__idx += 1
+                self.__synchronize_indexes()
+                self.__broker.fill_orders()
+                bar.update(self.idx)
+            self.__broker.canel_all_orders()
+            self.__broker.close_all_positions()
+        return self.__compute_results()
+
+    def __run_no_pgbar(self) -> dict[str, pd.DataFrame]:
+        length: int = self.__data_feed.data.data_array.shape[0]
+        self.__synchronize_indexes()
+
         while self.__idx < length - 1:
+            self.__equity_curve.append(
+                [self.__data_feed.current_datetime, self.__broker.current_equity]
+            )
             self.__broker.close_positions_tp_sl()
             self.__strategy.next()
             self.__idx += 1
@@ -68,7 +110,14 @@ class BacktestExecutor:
             self.__broker.fill_orders()
         self.__broker.canel_all_orders()
         self.__broker.close_all_positions()
+
         return self.__compute_results()
+
+    def run(self, progress_bar=False) -> dict[str, pd.DataFrame]:
+        if progress_bar:
+            return self.__run_pgbar()
+        else:
+            return self.__run_no_pgbar()
 
     @property
     def idx(self) -> int:
