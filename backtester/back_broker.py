@@ -32,7 +32,12 @@ class BackBroker(Broker):
         self.__leverage_multiplier = 1 / self._leverage
 
     def __fill_order(self, order: Order) -> None:
-        comm = self._commission.calculate_commission(order.price, order.size)
+        price = (
+            self.__data_feed.spot_price(order.symbol)
+            if order.price is None
+            else order.price
+        )
+        comm = self._commission.calculate_commission(price, order.size)
         if self._cash < comm:
             raise BacktestError(
                 f"Cash: {self._cash} is not enough to continue trading."
@@ -147,10 +152,9 @@ class BackBroker(Broker):
             self.__orders.append(order)
             return order.order_id
         else:
-            # raise OrderError(
-            #     f"Available margin: {self.margin} is not enough, order cost is {cost_no_comm + comm}"
-            # )
-            return -1
+            raise OrderError(
+                f"Available margin: {self.margin} is not enough, order cost is {cost_no_comm + comm}"
+            )
 
     def __cancel_order(self, order_index: int) -> bool:
         order = self.__orders.pop(order_index)

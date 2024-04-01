@@ -13,7 +13,6 @@ from backtester.analytics import Analyzer
 from typing import Type
 
 
-# NOTE:Consider backtester executor and deployment executor as separate executors?
 class BacktestExecutor:
     __strategy: Type[Strategy]
     __broker: Type[BackBroker]
@@ -45,12 +44,16 @@ class BacktestExecutor:
 
         self.__compute_idx_offset()
 
-    def __compute_idx_offset(self) -> None:
-        arr = next(iter(self.__data_feed.indicators.values())).indicator_array
-        while arr[self.__idx, 1] == np.nan and self.__idx <= arr.shape[0] - 1:
-            self.__idx += 1
-        if self.__idx == arr.shape[0] - 1:
+    def __indicator_offset(self, indicator_name: str) -> int:
+        arr = self.__data_feed.indicators[indicator_name].indicator_array[:, 1]
+        res = np.nanargmin(np.isnan(arr))
+        if res == 0 and np.isnan(arr[-1]):
             raise BacktestError("Indicator array is empty")
+        return res
+
+    def __compute_idx_offset(self) -> None:
+        for indicator_name in self.__data_feed.indicators:
+            self.__idx = int(max(self.__idx, self.__indicator_offset(indicator_name)))
 
     def __synchronize_indexes(self) -> None:
         self.__broker.idx = self.__idx

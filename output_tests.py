@@ -26,9 +26,9 @@ vendor = Yahoo(breeze_credentials)
 # )
 
 data = {
-    "RELIANCE": pd.read_csv(
-        "nifty50_m1/RELIND.csv", index_col=0, parse_dates=True
-    ).head(50000)
+    "RELIANCE": pd.read_csv("nifty50_m1/RELIND.csv", index_col=0, parse_dates=True)[
+        :10000
+    ]
 }
 
 assets_data = AssetsData(data)
@@ -81,6 +81,67 @@ class MaCrossSignalIndicator(Indicator):
         return signal
 
 
+# class MaCrossStrategy(strategy.Strategy):
+#     sma_period: int = 10
+#     lma_period: int = 40
+#     sl_perc: float = 3 / 100
+#     tp_perc: float = 9 / 100
+
+#     def init(self) -> None:
+#         self._data_feed.add_indicator(
+#             MaCrossSignalIndicator(
+#                 self._data_feed.data,
+#                 self._data_feed.symbols,
+#                 self.sma_period,
+#                 self.lma_period,
+#             ),
+#             "MACROSS",
+#         )
+
+
+#     def next(self) -> None:
+#         symbol = self._data_feed.symbols[0]
+#         price = self._data_feed.spot_price(symbol)
+#         dt = self._data_feed.current_datetime
+#         if len(self._broker.positions) == 0:
+#             if (
+#                 self._data_feed.indicator(
+#                     symbol,
+#                     "MACROSS",
+#                     -1,
+#                 )[1]
+#                 == 1
+#             ):
+#                 size = (self._broker.margin * 0.25) // self._data_feed.spot_price(
+#                     symbol
+#                 )
+#                 self.buy(
+#                     symbol=symbol,
+#                     order_type=ORDER.BUY,
+#                     size=size,
+#                     placed=dt,
+#                     sl=price * (1 - self.sl_perc),
+#                     tp=price * (1 + self.tp_perc),
+#                 )
+#             elif (
+#                 self._data_feed.indicator(
+#                     symbol,
+#                     "MACROSS",
+#                     -1,
+#                 )[1]
+#                 == -1
+#             ):
+#                 size = (self._broker.margin * 0.25) // self._data_feed.spot_price(
+#                     symbol
+#                 )
+#                 self.sell(
+#                     symbol=symbol,
+#                     order_type=ORDER.SELL,
+#                     size=size,
+#                     placed=dt,
+#                     sl=price * (1 + self.sl_perc),
+#                     tp=price * (1 - self.tp_perc),
+#                 )
 class MaCrossStrategy(strategy.Strategy):
     sma_period: int = 10
     lma_period: int = 40
@@ -89,13 +150,16 @@ class MaCrossStrategy(strategy.Strategy):
 
     def init(self) -> None:
         self._data_feed.add_indicator(
-            MaCrossSignalIndicator(
-                self._data_feed.data,
-                self._data_feed.symbols,
-                self.sma_period,
-                self.lma_period,
+            MovingAverage(
+                self._data_feed.data, self._data_feed.symbols, self.sma_period
             ),
-            "MACROSS",
+            "SMA",
+        )
+        self._data_feed.add_indicator(
+            MovingAverage(
+                self._data_feed.data, self._data_feed.symbols, self.lma_period
+            ),
+            "LMA",
         )
 
     def next(self) -> None:
@@ -106,15 +170,32 @@ class MaCrossStrategy(strategy.Strategy):
             if (
                 self._data_feed.indicator(
                     symbol,
-                    "MACROSS",
+                    "SMA",
+                    -2,
+                )[1]
+                <= self._data_feed.indicator(
+                    symbol,
+                    "LMA",
+                    -2,
+                )[1]
+                and self._data_feed.indicator(
+                    symbol,
+                    "SMA",
                     -1,
                 )[1]
-                == 1
+                > self._data_feed.indicator(
+                    symbol,
+                    "LMA",
+                    -1,
+                )[1]
             ):
+                size = (self._broker.margin * 0.25) // self._data_feed.spot_price(
+                    symbol
+                )
                 self.buy(
                     symbol=symbol,
                     order_type=ORDER.BUY,
-                    size=1,
+                    size=size,
                     placed=dt,
                     sl=price * (1 - self.sl_perc),
                     tp=price * (1 + self.tp_perc),
@@ -122,18 +203,32 @@ class MaCrossStrategy(strategy.Strategy):
             elif (
                 self._data_feed.indicator(
                     symbol,
-                    "MACROSS",
+                    "SMA",
+                    -2,
+                )[1]
+                >= self._data_feed.indicator(
+                    symbol,
+                    "LMA",
+                    -2,
+                )[1]
+                and self._data_feed.indicator(
+                    symbol,
+                    "SMA",
                     -1,
                 )[1]
-                == -1
+                < self._data_feed.indicator(
+                    symbol,
+                    "LMA",
+                    -1,
+                )[1]
             ):
-                size = (
-                    self._broker.margin // self._data_feed.spot_price(symbol)
-                ) * 0.25
+                size = (self._broker.margin * 0.25) // self._data_feed.spot_price(
+                    symbol
+                )
                 self.sell(
                     symbol=symbol,
                     order_type=ORDER.SELL,
-                    size=1,
+                    size=size,
                     placed=dt,
                     sl=price * (1 + self.sl_perc),
                     tp=price * (1 - self.tp_perc),
@@ -141,9 +236,12 @@ class MaCrossStrategy(strategy.Strategy):
 
 
 start = time.time()
-bt = BacktestExecutor(MaCrossStrategy, data, 10000, 5, NoCommission())
+bt = BacktestExecutor(
+    MaCrossStrategy, data, 100000, 1, PctFlatCommission(pct=0.05 / 100, amt=5)
+)
 res = bt.run(progress_bar=True)
 end = time.time()
 
-print(res)
+for _, result in res.items():
+    print(result)
 print(f"Time taken: {end - start}s")

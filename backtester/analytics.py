@@ -72,16 +72,16 @@ class Analyzer:
             df["Closing Price"] - df["Opening Price"]
         )
         df["Net PnL"] = df["Gross PnL"] - df["Commission"]
-        df["Net PnL [%]"] = df["Net PnL"] / df["Opening Price"] * 100
+        df["Net PnL [%]"] = (df["Net PnL"] / (df["Opening Price"] * df["Size"])) * 100
         return df
 
     def total_trade_duration(self, result_unit: str = "days") -> float:
         """result_unit: str can be any of the following: ["minutes", "hours", "days", "years"]"""
         # NOTE: Rather than trades table, maybe use equity curve's index?
-        if self.__results["Trades"].empty:
+        if self.__results["Equity Curve [$]"].shape[0] == 0:
             return 0
-        start: datetime = self.__results["Trades"]["Opening Datetime"].min()
-        end: datetime = self.__results["Trades"]["Closing Datetime"].max()
+        start: datetime = self.__results["Equity Curve [$]"].index[0]
+        end: datetime = self.__results["Equity Curve [$]"].index[-1]
         match result_unit:
             case "minutes":
                 return (end - start).total_seconds() / 60
@@ -94,6 +94,8 @@ class Analyzer:
                 return (end - start).total_seconds() / (60 * 60 * 24 * 252)
 
     def cagr(self) -> float:
+        if self.total_trade_duration(result_unit="years") == 0:
+            return np.nan
         return (
             (
                 (
@@ -111,6 +113,8 @@ class Analyzer:
         )
 
     def sharpe(self) -> float:
+        if self.__results["Volatility (Ann.) [%]"] == 0:
+            return np.nan
         return (
             self.__results["CAGR (Ann.) [%]"] / self.__results["Volatility (Ann.) [%]"]
         )
@@ -122,10 +126,11 @@ class Analyzer:
         avg_loss = trades.loc[(trades["Net PnL [%]"] <= 0), "Net PnL [%]"].mean()
         best_win = trades.loc[(trades["Net PnL [%]"] > 0), "Net PnL [%]"].max()
         worst_loss = trades.loc[(trades["Net PnL [%]"] <= 0), "Net PnL [%]"].min()
-        profit_factor = (
-            trades.loc[(trades["Net PnL"] > 0), "Net PnL [%]"].sum()
-            / trades.loc[(trades["Net PnL"] <= 0), "Net PnL [%]"].sum()
-        )
+        profit_factor = np.nan
+        if trades.loc[(trades["Net PnL"] <= 0), "Net PnL [%]"].sum() != 0:
+            profit_factor = trades.loc[
+                (trades["Net PnL"] > 0), "Net PnL"
+            ].sum() / np.abs(trades.loc[(trades["Net PnL"] <= 0), "Net PnL"].sum())
         return win_rate, avg_win, avg_loss, best_win, worst_loss, profit_factor
 
     def trade_duration_stats(self) -> tuple[float, float]:

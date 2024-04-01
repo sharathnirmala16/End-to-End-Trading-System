@@ -77,7 +77,8 @@ class AssetsData:
                 )
                 sol[:, 0] = self.__data_array[:, 0]
                 index = self.__cols_dict[key]
-                for i in range(1, len(self.symbols) + 1):
+                length = len(self.symbols) + 1
+                for i in range(1, length):
                     sol[:, i] = self.__data_array[:, index]
                     index += self.__offset
                 return sol
@@ -118,7 +119,8 @@ class AssetsData:
                 sol: np.ndarray[np.float64] = np.zeros(shape=(1, len(self.symbols) + 1))
                 col_offset = self.__cols_dict[key[0]]
                 sol[0, 0] = self.__data_array[key[1], 0]
-                for i in range(1, len(self.symbols) + 1):
+                length = len(self.symbols) + 1
+                for i in range(1, length):
                     sol[0, i] = self.__data_array[
                         key[1], (self.__offset * (i - 1) + col_offset)
                     ]
