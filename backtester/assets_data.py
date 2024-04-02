@@ -11,7 +11,6 @@ class AssetsData:
     def __init__(
         self,
         data_dict: dict[str, pd.DataFrame] | None = None,
-        symbols: list[str] | None = None,
         buffer_size: int | None = None,
         backtesting: bool = True,
     ) -> None:
