@@ -14,6 +14,10 @@ class Analyzer:
     def compute_results(self) -> dict[str, pd.DataFrame]:
         self.__results["Trades"] = self.parse_trades()
         self.__results["Trading Duration [d]"] = self.total_trade_duration()
+        self.__results["Total Returns [%]"] = (
+            (self.__results["Ending Cash [$]"] / self.__results["Starting Cash [$]"])
+            - 1
+        ) * 100
         self.__results["CAGR (Ann.) [%]"] = self.cagr()
         self.__results["Volatility (Ann.) [%]"] = self.volatility()
         self.__results["Sharpe Ratio"] = self.sharpe()

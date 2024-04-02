@@ -27,8 +27,14 @@ vendor = Yahoo(breeze_credentials)
 
 data = {
     "RELIANCE": pd.read_csv("nifty50_m1/RELIND.csv", index_col=0, parse_dates=True)[
-        :10000
-    ]
+        :100000
+    ],
+    "AXISBANK": pd.read_csv("nifty50_m1/AXIBAN.csv", index_col=0, parse_dates=True)[
+        :100000
+    ],
+    "CIPLA": pd.read_csv("nifty50_m1/CIPLA.csv", index_col=0, parse_dates=True)[
+        :100000
+    ],
 }
 
 assets_data = AssetsData(data)
@@ -235,9 +241,98 @@ class MaCrossStrategy(strategy.Strategy):
                 )
 
 
+class BackTraderCompStrategy(strategy.Strategy):
+    sma_period: int = 10
+    lma_period: int = 40
+    sl_perc: float = 3 / 100
+    tp_perc: float = 9 / 100
+    alloc_perc = 25 / 100
+
+    def init(self) -> None:
+        self._data_feed.add_indicator(
+            MovingAverage(
+                self._data_feed.data, self._data_feed.symbols, self.sma_period
+            ),
+            "SMA",
+        )
+        self._data_feed.add_indicator(
+            MovingAverage(
+                self._data_feed.data, self._data_feed.symbols, self.lma_period
+            ),
+            "LMA",
+        )
+        self.alloc_amt = self._broker.margin * self.alloc_perc
+
+    def next(self) -> None:
+        if (self._broker.positions) == 0:
+            self.alloc_amt = self._broker.margin * self.alloc_perc
+        for symbol in self._data_feed.symbols:
+            price = self._data_feed.spot_price(symbol)
+            dt = self._data_feed.current_datetime
+            if self.alloc_amt < self._broker.margin:
+                if (
+                    self._data_feed.indicator(
+                        symbol,
+                        "SMA",
+                        -2,
+                    )[1]
+                    <= self._data_feed.indicator(
+                        symbol,
+                        "LMA",
+                        -2,
+                    )[1]
+                    and self._data_feed.indicator(
+                        symbol,
+                        "SMA",
+                        -1,
+                    )[1]
+                    > self._data_feed.indicator(
+                        symbol,
+                        "LMA",
+                        -1,
+                    )[1]
+                ):
+                    size = self.alloc_amt // price
+                    self.buy(
+                        symbol=symbol,
+                        order_type=ORDER.BUY,
+                        size=1,
+                        placed=dt,
+                    )
+            if (
+                self._data_feed.indicator(
+                    symbol,
+                    "SMA",
+                    -2,
+                )[1]
+                >= self._data_feed.indicator(
+                    symbol,
+                    "LMA",
+                    -2,
+                )[1]
+                and self._data_feed.indicator(
+                    symbol,
+                    "SMA",
+                    -1,
+                )[1]
+                < self._data_feed.indicator(
+                    symbol,
+                    "LMA",
+                    -1,
+                )[1]
+            ):
+                positions = [
+                    position
+                    for position in self._broker.positions
+                    if position.symbol == symbol
+                ]
+                if len(positions) > 0:
+                    self.close_position(positions[0].position_id)
+
+
 start = time.time()
 bt = BacktestExecutor(
-    MaCrossStrategy, data, 100000, 1, PctFlatCommission(pct=0.05 / 100, amt=5)
+    BackTraderCompStrategy, data, 100000, 1, PctFlatCommission(pct=0.05 / 100, amt=5)
 )
 res = bt.run(progress_bar=True)
 end = time.time()
