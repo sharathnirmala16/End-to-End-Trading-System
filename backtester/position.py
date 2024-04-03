@@ -11,8 +11,8 @@ class Position:
     order_type: ORDER
     size: float
     price: float
-    sl: float | None
-    tp: float | None
+    sl: float = -1
+    tp: float = -1
     placed: datetime
     commission: float
     # Can be used to pass additional data to Strategy Executor based on platform

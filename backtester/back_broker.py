@@ -34,7 +34,7 @@ class BackBroker(Broker):
     def __fill_order(self, order: Order) -> None:
         price = (
             self.__data_feed.spot_price(order.symbol)
-            if order.price is None
+            if order.price == -1
             else order.price
         )
         comm = self._commission.calculate_commission(price, order.size)
@@ -78,9 +78,9 @@ class BackBroker(Broker):
 
     def __price_triggered(self, position: Position, current_price: float) -> bool:
         current_price = self.__data_feed.spot_price(position.symbol)
-        if position.tp is None and position.sl is None:
+        if position.tp == -1 and position.sl == -1:
             return False
-        if position.tp is not None and position.sl is not None:
+        if position.tp != -1 and position.sl != -1:
             if (
                 position.order_type == ORDER.BUY
                 or position.order_type == ORDER.BUY_LIMIT
@@ -92,7 +92,7 @@ class BackBroker(Broker):
             ) and (current_price >= position.sl or current_price <= position.tp):
                 return True
             return False
-        if position.tp is None and position.sl is not None:
+        if position.tp == -1 and position.sl != -1:
             if (
                 position.order_type == ORDER.BUY
                 or position.order_type == ORDER.BUY_LIMIT
@@ -104,7 +104,7 @@ class BackBroker(Broker):
             ) and (current_price >= position.sl):
                 return True
             return False
-        if position.tp is not None and position.sl is None:
+        if position.tp != -1 and position.sl == -1:
             if (
                 position.order_type == ORDER.BUY
                 or position.order_type == ORDER.BUY_LIMIT
@@ -163,7 +163,7 @@ class BackBroker(Broker):
         return self._commission.calculate_commission(
             (
                 self.__data_feed.spot_price(order.symbol)
-                if order.price is None
+                if order.price == -1
                 else order.price
             ),
             order.size,

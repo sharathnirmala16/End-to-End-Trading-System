@@ -20,9 +20,9 @@ class Strategy:
         order_type: ORDER,
         size: float,
         placed: datetime,
-        price: float | None = None,
-        sl: float | None = None,
-        tp: float | None = None,
+        price: float = -1,
+        sl: float = -1,
+        tp: float = -1,
     ) -> int:
         new_order = Order(
             symbol=symbol,
@@ -41,9 +41,9 @@ class Strategy:
         order_type: ORDER,
         size: float,
         placed: datetime,
-        price: float | None = None,
-        sl: float | None = None,
-        tp: float | None = None,
+        price: float = -1,
+        sl: float = -1,
+        tp: float = -1,
     ) -> int:
         new_order = Order(
             symbol=symbol,
