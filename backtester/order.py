@@ -6,61 +6,21 @@ class Order:
     # __order_count is used to maintain unique order_ids
     __order_count: int = 10000000
     __order_id: int
-    __symbol: str
-    __order_type: ORDER
-    __size: float
-    __price: float
-    __sl: float | None
-    __tp: float | None
-    __placed: datetime
+    symbol: str
+    order_type: ORDER
+    size: float
+    price: float
+    sl: float | None
+    tp: float | None
+    placed: datetime
     # Can be used to pass additional data to Strategy Executor based on platform
-    __params: dict | None
+    params: dict | None
     # used to track the margin being used
-    __margin_utilized: float
+    margin_utilized: float
 
     @property
     def order_id(self) -> int:
         return self.__order_id
-
-    @property
-    def symbol(self) -> str:
-        return self.__symbol
-
-    @property
-    def order_type(self) -> ORDER:
-        return self.__order_type
-
-    @property
-    def size(self) -> float:
-        return self.__size
-
-    @property
-    def price(self) -> float:
-        return self.__price
-
-    @property
-    def sl(self) -> float | None:
-        return self.__sl
-
-    @property
-    def tp(self) -> float | None:
-        return self.__tp
-
-    @property
-    def placed(self) -> datetime:
-        return self.__placed
-
-    @property
-    def params(self) -> float | None:
-        return self.__params
-
-    @property
-    def margin_utilized(self) -> float:
-        return self.__margin_utilized
-
-    @margin_utilized.setter
-    def margin_utilized(self, margin_utilized: float) -> None:
-        self.__margin_utilized = margin_utilized
 
     def __init__(
         self,
@@ -126,12 +86,12 @@ class Order:
 
         Order.__order_count += 1
         self.__order_id = Order.__order_count
-        self.__symbol = symbol
-        self.__order_type = order_type
-        self.__size = size
-        self.__price = price
-        self.__sl = sl
-        self.__tp = tp
-        self.__placed = placed
-        self.__params = params
-        self.__margin_utilized = 0
+        self.symbol = symbol
+        self.order_type = order_type
+        self.size = size
+        self.price = price
+        self.sl = sl
+        self.tp = tp
+        self.placed = placed
+        self.params = params
+        self.margin_utilized = 0
