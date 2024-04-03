@@ -15,8 +15,6 @@ class Position:
     tp: float = -1
     placed: datetime
     commission: float
-    # Can be used to pass additional data to Strategy Executor based on platform
-    params: dict | None
     # used to track the margin being used
     margin_utilized: float
 
@@ -44,5 +42,4 @@ class Position:
         self.tp = order.tp
         self.placed = placed
         self.commission = commission
-        self.params = order.params
         self.margin_utilized = order.margin_utilized

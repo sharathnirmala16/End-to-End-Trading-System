@@ -506,14 +506,14 @@ class TestAssetsDataWithMocks:
 
 class TestOrder:
     def test_size(self):
-        with pytest.raises(OrderError):
+        with pytest.raises(ValueError):
             Order(
                 symbol="TCS",
                 order_type=ORDER.BUY,
                 size=0,
                 placed=datetime.today(),
             )
-        with pytest.raises(OrderError):
+        with pytest.raises(ValueError):
             Order(
                 symbol="TCS",
                 order_type=ORDER.BUY,
@@ -534,7 +534,7 @@ class TestOrder:
         "sl, tp, order_type", [(1, 0.9, ORDER.BUY), (0.9, 1, ORDER.SELL)]
     )
     def test_market_order_sl_tp(self, sl: float, tp: float, order_type: ORDER):
-        with pytest.raises(OrderError):
+        with pytest.raises(ValueError):
             Order(
                 symbol="TCS",
                 order_type=order_type,
@@ -547,12 +547,12 @@ class TestOrder:
     @pytest.mark.parametrize(
         "sl, price, tp, error",
         [
-            (0.1, -1, 0.2, OrderError),
-            (-1, 0.2, 0.1, OrderError),
-            (0.2, 0.1, -1, OrderError),
-            (0.3, 0.2, 0.1, OrderError),
-            (0.2, 0.1, 0.3, OrderError),
-            (0.1, 0.3, 0.2, OrderError),
+            (0.1, -1, 0.2, AttributeError),
+            (-1, 0.2, 0.1, ValueError),
+            (0.2, 0.1, -1, ValueError),
+            (0.3, 0.2, 0.1, ValueError),
+            (0.2, 0.1, 0.3, ValueError),
+            (0.1, 0.3, 0.2, ValueError),
         ],
     )
     def test_limit_order_buy(
@@ -572,12 +572,12 @@ class TestOrder:
     @pytest.mark.parametrize(
         "sl, price, tp, error",
         [
-            (0.1, -1, 0.2, OrderError),
-            (-1, 0.1, 0.2, OrderError),
-            (0.1, 0.2, -1, OrderError),
-            (0.1, 0.2, 0.3, OrderError),
-            (0.3, 0.1, 0.2, OrderError),
-            (0.2, 0.3, 0.1, OrderError),
+            (0.1, -1, 0.2, AttributeError),
+            (-1, 0.1, 0.2, ValueError),
+            (0.1, 0.2, -1, ValueError),
+            (0.1, 0.2, 0.3, ValueError),
+            (0.3, 0.1, 0.2, ValueError),
+            (0.2, 0.3, 0.1, ValueError),
         ],
     )
     def test_limit_order_sell(

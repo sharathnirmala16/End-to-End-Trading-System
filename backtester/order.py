@@ -14,8 +14,6 @@ class Order:
     sl: float
     tp: float
     placed: datetime
-    # Can be used to pass additional data to Strategy Executor based on platform
-    params: dict | None
     # used to track the margin being used
     margin_utilized: float
 
@@ -94,5 +92,4 @@ class Order:
         self.sl = sl
         self.tp = tp
         self.placed = placed
-        self.params = params
         self.margin_utilized = 0
