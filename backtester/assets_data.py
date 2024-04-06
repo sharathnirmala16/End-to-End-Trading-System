@@ -3,6 +3,7 @@ import pandas as pd
 
 
 class AssetsData:
+
     __data_array: np.ndarray[np.float64]
     __symbols_dict: dict[str, int]
     __cols_dict: dict[str, int]

@@ -1,5 +1,7 @@
 from numba import types
 from numba.typed.typeddict import Dict
+from numba.typed.typedlist import List
+
 
 VENDOR = Dict.empty(key_type=types.string, value_type=types.string)
 VENDOR["YAHOO"] = "Yahoo Finance"

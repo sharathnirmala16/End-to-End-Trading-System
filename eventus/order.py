@@ -5,17 +5,17 @@ from numba.typed.typeddict import Dict
 from numba.experimental import jitclass
 from common.exceptions import OrderError
 
-spec = [
-    ("order_id", types.int64),
-    ("symbol", types.string),
-    ("order_type", types.string),  # Use String type for order_type
-    ("size", types.double),
-    ("price", types.double),  # Allow price to be None
-    ("sl", types.double),  # Allow sl and tp to be None
-    ("tp", types.double),
-    ("placed", types.int64),  # Posix timestamp for placed datetime
-    ("margin_utilized", types.double),
-]
+spec = {
+    "order_id": types.int64,
+    "symbol": types.string,
+    "order_type": types.string,  # Use String type for order_type
+    "size": types.double,
+    "price": types.double,  # Allow price to be None
+    "sl": types.double,  # Allow sl and tp to be None
+    "tp": types.double,
+    "placed": types.int64,  # Posix timestamp for placed datetime
+    "margin_utilized": types.double,
+}
 
 
 @jitclass(spec)

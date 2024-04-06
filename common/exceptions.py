@@ -14,6 +14,10 @@ class TradeError(Exception):
     pass
 
 
+class DataFeedError(Exception):
+    pass
+
+
 class TradingError(Exception):
     pass
 
