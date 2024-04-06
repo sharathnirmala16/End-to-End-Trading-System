@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from backtester.assets_data import AssetsData
 from eventus.order import Order
 from eventus.position import Position
-from backtester.trade import Trade
+from eventus.trade import Trade
 from backtester.commission import *
 from backtester.back_datafeed import BackDataFeed
 from backtester.indicators import *
@@ -620,67 +620,67 @@ class TestPosition:
             Position(order, price, placed, commission)
 
 
-# class TestTrade:
+class TestTrade:
 
-#     @pytest.mark.parametrize(
-#         "open_position, closing_price, closing_datetime, closing_commission",
-#         [
-#             (None, 10, datetime.today(), 0),
-#             (
-#                 Position(
-#                     Order("TCS", ORDER.BUY, datetime.today(), 1, 10, 9, 11),
-#                     10,
-#                     datetime.today(),
-#                     0,
-#                 ),
-#                 None,
-#                 datetime.today(),
-#                 0,
-#             ),
-#             (
-#                 Position(
-#                     Order("TCS", ORDER.BUY, datetime.today(), 1, 10, 9, 11),
-#                     10,
-#                     datetime.today(),
-#                     0,
-#                 ),
-#                 10,
-#                 None,
-#                 0,
-#             ),
-#         ],
-#     )
-#     def test_exceptions(
-#         self,
-#         open_position: Position,
-#         closing_price: float,
-#         closing_datetime: datetime,
-#         closing_commission: float,
-#     ):
-#         with pytest.raises(AttributeError):
-#             Trade(open_position, closing_price, closing_datetime, closing_commission)
+    @pytest.mark.parametrize(
+        "open_position, closing_price, closing_datetime, closing_commission",
+        [
+            (None, 10, 1712312120, 0),
+            (
+                Position(
+                    Order("TCS", "BUY", 1712312120, 1, 10, 9, 11),
+                    10,
+                    1712312120,
+                    0,
+                ),
+                None,
+                1712312120,
+                0,
+            ),
+            (
+                Position(
+                    Order("TCS", "BUY", 1712312120, 1, 10, 9, 11),
+                    10,
+                    1712312120,
+                    0,
+                ),
+                10,
+                None,
+                0,
+            ),
+        ],
+    )
+    def test_exceptions(
+        self,
+        open_position: Position,
+        closing_price: float,
+        closing_datetime: datetime,
+        closing_commission: float,
+    ):
+        with pytest.raises(TradeError):
+            Trade(open_position, closing_price, closing_datetime, closing_commission)
 
-#     def test_get_as_dict(self):
-#         assert {
-#             "symbol": "TCS",
-#             "order_type": ORDER.BUY,
-#             "size": 10,
-#             "opening_price": 10,
-#             "closing_price": 10,
-#             "opening_datetime": datetime.today(),
-#             "closing_datetime": datetime.today(),
-#             "commission": 1,
-#         } == Trade(
-#             Position(
-#                 Order("TCS", ORDER.BUY, datetime.today(), 10, 10),
-#                 10,
-#                 datetime.today(),
-#                 0.5,
-#             ),
-#             10,
-#             datetime.today(),
-#             0.5,
-#         ).get_as_dict()
+    # def test_get_as_dict(self):
+    #     assert {
+    #         "symbol": "TCS",
+    #         "order_type": ORDER.BUY,
+    #         "size": 10,
+    #         "opening_price": 10,
+    #         "closing_price": 10,
+    #         "opening_datetime": datetime.today(),
+    #         "closing_datetime": datetime.today(),
+    #         "commission": 1,
+    #     } == Trade(
+    #         Position(
+    #             Order("TCS", ORDER.BUY, datetime.today(), 10, 10),
+    #             10,
+    #             datetime.today(),
+    #             0.5,
+    #         ),
+    #         10,
+    #         datetime.today(),
+    #         0.5,
+    #     ).get_as_dict()
 
 
 class TestCommissionModels:

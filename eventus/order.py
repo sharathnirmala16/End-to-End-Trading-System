@@ -1,4 +1,5 @@
 import numpy as np
+
 from numba import types
 from numba.typed.typeddict import Dict
 from numba.experimental import jitclass
@@ -40,7 +41,7 @@ class Order:
         price: float = np.nan,
         sl: float = np.nan,
         tp: float = np.nan,
-    ) -> bool:
+    ) -> None:
         # ORDER DEFINITION TO MAKE IT WORK WITH JITCLASS
         ORDER = Dict.empty(key_type=types.string, value_type=types.int64)
         ORDER["BUY"] = 1
