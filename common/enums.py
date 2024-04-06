@@ -1,4 +1,6 @@
 from enum import Enum
+from numba import types
+from numba.experimental import jitclass
 
 
 class VENDOR(Enum):

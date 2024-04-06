@@ -6,6 +6,14 @@ class OrderError(Exception):
     pass
 
 
+class PositionError(Exception):
+    pass
+
+
+class TradeError(Exception):
+    pass
+
+
 class TradingError(Exception):
     pass
 

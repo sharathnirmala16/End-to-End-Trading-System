@@ -1,6 +1,8 @@
 from datetime import datetime
 from common.enums import ORDER
 from common.exceptions import OrderError
+from numba import types, typed
+from numba.experimental import jitclass
 
 
 class Order:
