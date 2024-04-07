@@ -1,25 +1,30 @@
+import cython
 import numpy as np
 
-from numba import types
-from numba.typed.typeddict import Dict
-from numba.experimental import jitclass
+from common.typed_dicts import ORDER_TYPES
 from common.exceptions import OrderError
 
-spec = {
-    "order_id": types.int64,
-    "symbol": types.string,
-    "order_type": types.string,  # Use String type for order_type
-    "size": types.double,
-    "price": types.double,  # Allow price to be None
-    "sl": types.double,  # Allow sl and tp to be None
-    "tp": types.double,
-    "placed": types.int64,  # Posix timestamp for placed datetime
-    "margin_utilized": types.double,
-}
+# spec = {
+#     "order_id": types.int64,
+#     "symbol": types.string,
+#     "order_type": types.string,  # Use String type for order_type
+#     "size": types.double,
+#     "price": types.double,  # Allow price to be None
+#     "sl": types.double,  # Allow sl and tp to be None
+#     "tp": types.double,
+#     "placed": types.int64,  # Posix timestamp for placed datetime
+#     "margin_utilized": types.double,
+# }
 
 
-@jitclass(spec)
+# @jitclass(spec)
+
+
+@cython.annotation_typing(True)
+@cython.cclass
 class Order:
+    ORDER: ORDER_TYPES = ORDER_TYPES.create()
+    order_count: int = 10000000
     order_id: int
     symbol: str
     order_type: str
@@ -42,18 +47,11 @@ class Order:
         sl: float = np.nan,
         tp: float = np.nan,
     ) -> None:
-        # ORDER DEFINITION TO MAKE IT WORK WITH JITCLASS
-        ORDER = Dict.empty(key_type=types.string, value_type=types.int64)
-        ORDER["BUY"] = 1
-        ORDER["SELL"] = 2
-        ORDER["BUY_LIMIT"] = 3
-        ORDER["SELL_LIMIT"] = 4
-
         if size <= 0:
             raise OrderError(f"Order size <= 0")
 
-        if order_type not in ORDER:
-            raise OrderError(f"{order_type} not in {ORDER.keys()}")
+        if order_type not in Order.ORDER:
+            raise OrderError(f"{order_type} not in {Order.ORDER.keys()}")
 
         if order_type == "BUY":
             if sl is not np.nan and tp is not np.nan and sl > tp:
@@ -100,7 +98,8 @@ class Order:
                     f"Failed condition sl={sl} > price={price} > tp={tp} for order type {order_type}"
                 )
 
-        self.order_id = 0
+        Order.order_count += 1
+        self.order_id = Order.order_count
         self.symbol = symbol
         self.order_type = order_type
         self.size = size

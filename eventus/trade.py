@@ -1,22 +1,21 @@
+import cython
+
 from eventus.position import Position
-from numba import types
-from numba.typed.typeddict import Dict
-from numba.experimental import jitclass
 from common.exceptions import TradeError
 
-spec = {
-    "symbol": types.string,
-    "order_type": types.string,  # Use String type for order_type
-    "size": types.double,
-    "opening_price": types.double,  # Allow price to be None
-    "closing_price": types.double,  # Allow sl and tp to be None
-    "opening_datetime": types.int64,
-    "closing_datetime": types.int64,  # Posix timestamp for placed datetime
-    "commission": types.double,
-}
+# spec = {
+#     "symbol": types.string,
+#     "order_type": types.string,  # Use String type for order_type
+#     "size": types.double,
+#     "opening_price": types.double,  # Allow price to be None
+#     "closing_price": types.double,  # Allow sl and tp to be None
+#     "opening_datetime": types.int64,
+#     "closing_datetime": types.int64,  # Posix timestamp for placed datetime
+#     "commission": types.double,
+# }
 
 
-@jitclass(spec)
+# @jitclass(spec)
 class Trade:
     symbol: str
     order_type: str

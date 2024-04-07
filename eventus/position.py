@@ -1,23 +1,28 @@
+import cython
+
 from eventus.order import Order
-from numba import types
-from numba.experimental import jitclass
 from common.exceptions import PositionError
 
-spec = {
-    "position_id": types.int64,
-    "symbol": types.string,
-    "order_type": types.string,  # Use String type for order_type
-    "size": types.double,
-    "price": types.double,  # Allow price to be None
-    "sl": types.double,  # Allow sl and tp to be None
-    "tp": types.double,
-    "placed": types.int64,  # Posix timestamp for placed datetime
-    "margin_utilized": types.double,
-}
+# spec = {
+#     "position_id": types.int64,
+#     "symbol": types.string,
+#     "order_type": types.string,  # Use String type for order_type
+#     "size": types.double,
+#     "price": types.double,  # Allow price to be None
+#     "sl": types.double,  # Allow sl and tp to be None
+#     "tp": types.double,
+#     "placed": types.int64,  # Posix timestamp for placed datetime
+#     "margin_utilized": types.double,
+# }
 
 
-@jitclass(spec)
+# @jitclass(spec)
+
+
+@cython.annotation_typing(True)
+@cython.cclass
 class Position:
+    position_count: int = 20000000
     position_id: int
     symbol: str
     order_type: str
@@ -41,7 +46,8 @@ class Position:
         if placed is None:
             raise PositionError("Position placement date can't be empty")
 
-        self.position_id = 0
+        Position.position_count += 1
+        self.position_id = Position.position_count
         self.symbol = order.symbol
         self.order_type = order.order_type
         self.size = order.size

@@ -1,23 +1,49 @@
+import cython
 import numpy as np
 
 from numba import types
+from abc import ABC, abstractmethod
 from numba.typed.typeddict import Dict
-from numba.typed.typedlist import List
-from numba.experimental import jitclass
 from common.exceptions import DataFeedError
 
-spec = {
-    "idx": types.int64,
-    "offset": types.int64,
-    "symbols": types.DictType(keyty=types.string, valty=types.int64),
-    "data_dict": types.DictType(keyty=types.string, valty=types.float64[:, :]),
-    "cols_dict": types.DictType(keyty=types.string, valty=types.int64),
-    "data": types.float64[:, :],
-}
+# spec = {
+#     "idx": types.int64,
+#     "offset": types.int64,
+#     "symbols": types.DictType(keyty=types.string, valty=types.int64),
+#     "data_dict": types.DictType(keyty=types.string, valty=types.float64[:, :]),
+#     "cols_dict": types.DictType(keyty=types.string, valty=types.int64),
+#     "data": types.float64[:, :],
+# }
 
 
-@jitclass(spec)
-class HistoricDataFeed:
+# @jitclass(spec)
+
+
+@cython.annotation_typing(True)
+@cython.cclass
+class DataFeed(ABC):
+    symbols: dict[str, 1]
+
+    @abstractmethod
+    def get_datetime_index(self, window: int = 1) -> np.ndarray[np.float64]:
+        pass
+
+    @abstractmethod
+    def get_prices(
+        self, symbol: str, price: str = "Close", window: int = 1
+    ) -> np.ndarray[np.float64]:
+        pass
+
+    @abstractmethod
+    def get_symbol_all_prices(
+        self, symbol: str, window: int = 1
+    ) -> np.ndarray[np.float64]:
+        pass
+
+
+@cython.annotation_typing(True)
+@cython.cclass
+class HistoricDataFeed(DataFeed):
     idx: int
     offset: int
     symbols: Dict[str, int]
@@ -97,7 +123,12 @@ class HistoricDataFeed:
         self, symbol: str, window: int = 1
     ) -> np.ndarray[np.float64]:
         """in-sync with the idx"""
-        # return self.data[
-        #     max(self.idx - window + 1, 0) : self.idx + 1,
-        #     self.offset * self.symbols[symbol] + self.cols_dict[price],
-        # ]
+        col_list: list[str] = list(self.cols_dict.keys())
+        return self.data[
+            max(self.idx - window + 1, 0) : self.idx + 1,
+            self.offset * self.symbols[symbol]
+            + self.cols_dict[col_list[0]]
+            + 1 : self.offset * self.symbols[symbol]
+            + self.cols_dict[col_list[-1]]
+            + 1,
+        ]
