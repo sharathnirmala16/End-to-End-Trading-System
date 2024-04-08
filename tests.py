@@ -18,7 +18,8 @@ from eventus.position import Position
 from eventus.trade import Trade
 from backtester.commission import *
 from backtester.back_datafeed import BackDataFeed
-from backtester.indicators import *
+from eventus.datafeeds import HistoricDataFeed
+from eventus.indicators import *
 
 
 class TestNse:
@@ -889,7 +890,6 @@ class TestIndicator:
 
 
 class TestMovingAverage:
-
     def setup_method(self):
         self.nse = Nse()
         self.vendor = Yahoo({})
@@ -903,9 +903,14 @@ class TestMovingAverage:
             symbols=self.symbols,
             adjusted_prices=True,
         )
+        self.np_data: dict[str, np.ndarray] = {}
+        for symbol in self.symbols:
+            self.np_data[symbol] = self.data[symbol].values
 
-        self.assets_data = AssetsData(self.data)
-        self.indicator = MovingAverage(self.assets_data, self.symbols, period=9)
+        self.datafeed = HistoricDataFeed(
+            self.data[self.symbols[0]].index.values, self.np_data
+        )
+        self.indicator = MovingAverage(self.datafeed, period=9)
 
         for symbol in self.symbols:
             self.data[symbol]["MovingAverage"] = (
@@ -914,10 +919,8 @@ class TestMovingAverage:
 
     @pytest.mark.parametrize("symbol", ["HCLTECH", "ACC", "AUROPHARMA"])
     def test_equality(self, symbol: str):
-        print(self.indicator[symbol][:, 1])
-        print(self.data[symbol]["MovingAverage"].values)
         assert np.allclose(
-            self.indicator[symbol][:, 1],
+            self.indicator.full_signal(symbol),
             self.data[symbol]["MovingAverage"].values,
             equal_nan=True,
         )
@@ -937,11 +940,14 @@ class TestExponentialMovingAverage:
             symbols=self.symbols,
             adjusted_prices=True,
         )
+        self.np_data: dict[str, np.ndarray] = {}
+        for symbol in self.symbols:
+            self.np_data[symbol] = self.data[symbol].values
 
-        self.assets_data = AssetsData(self.data)
-        self.indicator = ExponentialMovingAverage(
-            self.assets_data, self.symbols, period=9
+        self.datafeed = HistoricDataFeed(
+            self.data[self.symbols[0]].index.values, self.np_data
         )
+        self.indicator = ExponentialMovingAverage(self.datafeed, span=9)
 
         for symbol in self.symbols:
             self.data[symbol]["ExponentialMovingAverage"] = (
@@ -952,10 +958,10 @@ class TestExponentialMovingAverage:
 
     @pytest.mark.parametrize("symbol", ["HCLTECH", "ACC", "AUROPHARMA"])
     def test_equality(self, symbol: str):
-        print(self.indicator[symbol][:, 1])
+        print(self.indicator.full_signal(symbol))
         print(self.data[symbol]["ExponentialMovingAverage"].values)
         assert np.allclose(
-            self.indicator[symbol][:, 1],
+            self.indicator.full_signal(symbol),
             self.data[symbol]["ExponentialMovingAverage"].values,
             equal_nan=True,
         )

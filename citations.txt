@@ -1,3 +1,4 @@
 FastAPI Login System with PSQL: https://medium.com/@chnarsimha986/fastapi-login-logout-changepassword-4c12e92d41e2
 Prefer to not use inplace when using pandas: https://stackoverflow.com/questions/43893457/understanding-inplace-true-in-pandas
 Rolling Window in Numpy: https://gist.github.com/johnsloper/e6783949bb4bc789a03a32e435593182
+EMA in Numpy: https://stackoverflow.com/questions/42869495/numpy-version-of-exponential-weighted-moving-average-equivalent-to-pandas-ewm

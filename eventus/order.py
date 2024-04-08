@@ -23,6 +23,13 @@ from common.exceptions import OrderError
 @cython.annotation_typing(True)
 @cython.cclass
 class Order:
+    """
+    placed is the datetime of order converted to posix time
+    NOTE: FOR STOP_LOSS and TAKE_PROFIT orders, placed will store
+    the position_id of the position to be closed used to track
+    the margin being used
+    """
+
     ORDER: ORDER_TYPES = ORDER_TYPES.create()
     order_count: int = 10000000
     order_id: int
@@ -32,9 +39,7 @@ class Order:
     price: float
     sl: float
     tp: float
-    # placed is the datetime of order converted to posix time
     placed: int
-    # used to track the margin being used
     margin_utilized: float
 
     def __init__(
@@ -97,6 +102,14 @@ class Order:
                 raise OrderError(
                     f"Failed condition sl={sl} > price={price} > tp={tp} for order type {order_type}"
                 )
+
+        elif order_type == "STOP_LOSS":
+            if price is np.nan:
+                raise OrderError(f"{order_type} must have a price")
+
+        elif order_type == "TAKE_PROFIT":
+            if price is np.nan:
+                raise OrderError(f"{order_type} must have a price")
 
         Order.order_count += 1
         self.order_id = Order.order_count

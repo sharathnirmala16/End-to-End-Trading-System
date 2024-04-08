@@ -3,7 +3,6 @@ import numpy as np
 
 from numba import types
 from abc import ABC, abstractmethod
-from numba.typed.typeddict import Dict
 from common.exceptions import DataFeedError
 
 # spec = {
@@ -22,7 +21,22 @@ from common.exceptions import DataFeedError
 @cython.annotation_typing(True)
 @cython.cclass
 class DataFeed(ABC):
-    symbols: dict[str, 1]
+    idx: int
+    symbols: dict[str, int]
+
+    @abstractmethod
+    def full_datetime_index(self) -> np.ndarray[np.float64]:
+        pass
+
+    @abstractmethod
+    def full_symbol_prices(
+        self, symbol: str, price: str = "Close"
+    ) -> np.ndarray[np.float64]:
+        pass
+
+    @abstractmethod
+    def full_symbol_all_prices(self, symbol: str) -> np.ndarray[np.float64]:
+        pass
 
     @abstractmethod
     def get_datetime_index(self, window: int = 1) -> np.ndarray[np.float64]:
@@ -44,23 +58,22 @@ class DataFeed(ABC):
 @cython.annotation_typing(True)
 @cython.cclass
 class HistoricDataFeed(DataFeed):
-    idx: int
     offset: int
-    symbols: Dict[str, int]
+    symbols: dict[str, int]
     data: np.ndarray[np.float64]
 
     def __init__(
         self,
         datetime_index: np.ndarray[np.float64],
-        data_dict: Dict[str, np.ndarray[np.float64]],
+        data_dict: dict[str, np.ndarray[np.float64]],
     ) -> None:
         self.idx = 0
-        self.symbols = Dict.empty(key_type=types.string, value_type=types.int64)
+        self.symbols = {}
 
         for index, symbol in enumerate(data_dict.keys()):
             self.symbols[symbol] = index
 
-        self.cols_dict = Dict.empty(key_type=types.string, value_type=types.int64)
+        self.cols_dict = {}
         self.cols_dict["Datetime"] = 0
         self.cols_dict["Open"] = 1
         self.cols_dict["High"] = 2

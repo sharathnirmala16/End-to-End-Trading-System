@@ -98,6 +98,8 @@ class ORDER_TYPES(TypedDict):
     SELL: int
     BUY_LIMIT: int
     SELL_LIMIT: int
+    STOP_LOSS: int
+    TAKE_PROFIT: int
 
     @classmethod
     def create(cls) -> ORDER_TYPES:
@@ -106,4 +108,6 @@ class ORDER_TYPES(TypedDict):
             SELL=2,
             BUY_LIMIT=3,
             SELL_LIMIT=4,
+            STOP_LOSS=5,
+            TAKE_PROFIT=6,
         )
