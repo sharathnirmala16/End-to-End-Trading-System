@@ -8,8 +8,8 @@ from eventus.datafeeds import DataFeed
 from eventus.indicators import Indicator
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class Strategy(ABC):
     """
     All indicators that are being used and computed should be added

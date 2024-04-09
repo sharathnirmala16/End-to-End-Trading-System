@@ -5,8 +5,8 @@ from abc import ABC, abstractmethod
 from eventus.datafeeds import DataFeed
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class Indicator(ABC):
     idx: int
     symbols: dict[str, int]
@@ -57,8 +57,8 @@ class Indicator(ABC):
         ]
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class MovingAverage(Indicator):
     def __init__(self, datafeed: DataFeed, period: int, price: str = "Close") -> None:
         super().__init__(datafeed)
@@ -80,8 +80,8 @@ class MovingAverage(Indicator):
         return res
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class ExponentialMovingAverage(Indicator):
     def __init__(self, datafeed: DataFeed, span: int, price: str = "Close") -> None:
         super().__init__(datafeed)

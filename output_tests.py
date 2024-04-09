@@ -41,8 +41,8 @@ for symbol in data:
     np_data[symbol] = data[symbol].values.astype(np.float64)
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class BackTraderCompStrategy(strategy.Strategy):
     sma_period: int = 10
     lma_period: int = 40
@@ -80,7 +80,7 @@ bt = BacktestExecutor(
     leverage=1.0,
     commission_model=PctFlatCommission(pct=0.05 / 100, amt=5),
 )
-bt.run()
+bt.run(progress=False)
 end = time.time()
 res = bt.results()
 print(f"Execution Time: {end - start}s")

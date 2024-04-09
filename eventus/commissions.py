@@ -2,23 +2,23 @@ import cython
 from abc import ABC, abstractmethod
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class Commission(ABC):
     @abstractmethod
     def calculate_commission(self, price: float, size: float) -> float:
         pass
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class NoCommission(Commission):
     def calculate_commission(self, price: float, size: float) -> float:
         return 0
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class FlatCommission(Commission):
     amt: float
 
@@ -29,8 +29,8 @@ class FlatCommission(Commission):
         return self.amt
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class PctCommission(Commission):
     """pct should be between 0 to 1"""
 
@@ -45,8 +45,8 @@ class PctCommission(Commission):
         return price * abs(size) * self.pct
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class PctFlatCommission(PctCommission, FlatCommission):
     """pct should be between 0 to 1"""
 

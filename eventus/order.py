@@ -20,8 +20,8 @@ from common.exceptions import OrderError
 # @jitclass(spec)
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class Order:
     """
     placed is the datetime of order converted to posix time

@@ -11,8 +11,8 @@ from eventus.datafeeds import HistoricDataFeed
 from eventus.brokers import Broker, Backtester
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class Executor(ABC):
     idx: int
     strategy: Strategy
@@ -31,8 +31,8 @@ class Executor(ABC):
         pass
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class BacktestExecutor(Executor):
     datafeed: HistoricDataFeed
     equity_curve: list[list]

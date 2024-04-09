@@ -10,8 +10,8 @@ from eventus.datafeeds import DataFeed
 from eventus.commissions import Commission
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class Broker(ABC):
     orders: dict[str, dict[int, Order]]
     positions: dict[str, dict[int, Position]]
@@ -67,8 +67,8 @@ class Broker(ABC):
         pass
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class Backtester(Broker):
     """
     leverage should be less than or equal to one,

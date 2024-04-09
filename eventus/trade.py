@@ -18,8 +18,8 @@ from common.exceptions import TradeError
 # @jitclass(spec)
 
 
-# @cython.annotation_typing(True)
-# @cython.cclass
+@cython.annotation_typing(True)
+@cython.cclass
 class Trade:
     symbol: str
     order_type: str
