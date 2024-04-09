@@ -11,8 +11,8 @@ from eventus.datafeeds import HistoricDataFeed
 from eventus.brokers import Broker, Backtester
 
 
-@cython.annotation_typing(True)
-@cython.cclass
+# @cython.annotation_typing(True)
+# @cython.cclass
 class Executor(ABC):
     idx: int
     strategy: Strategy
@@ -31,8 +31,8 @@ class Executor(ABC):
         pass
 
 
-@cython.annotation_typing(True)
-@cython.cclass
+# @cython.annotation_typing(True)
+# @cython.cclass
 class BacktestExecutor(Executor):
     datafeed: HistoricDataFeed
     equity_curve: list[list]
@@ -47,6 +47,7 @@ class BacktestExecutor(Executor):
         commission_model: Commission,
     ) -> None:
         self.idx = 0
+        self.equity_curve = []
         datafeed = HistoricDataFeed(datetime_index, data_dict)
         self.broker: Backtester = Backtester(cash, leverage, commission_model, datafeed)
         self.strategy = strategy(self.broker, datafeed)
@@ -57,10 +58,10 @@ class BacktestExecutor(Executor):
 
     def indicator_offset(self, indicator_name: str) -> int:
         arr = self.strategy.indicators[indicator_name].indicator_data
-        res = np.nanargmin(np.isnan(arr))
-        if res == 0 and np.isnan(arr[-1]):
-            raise BacktestError("Indicator array is empty")
-        return res
+        res = np.argwhere(np.isnan(arr))
+        if res.shape[0] == 0:
+            return 0
+        return np.max(res[:, 0]) + 1
 
     def compute_idx_offset(self) -> None:
         self.idx = max(
@@ -73,20 +74,69 @@ class BacktestExecutor(Executor):
         self.strategy.idx = self.idx
         self.strategy.synchronize_indexes()
 
-    def run(self) -> None:
-        start, stop = self.idx, self.datafeed.data.shape[0]
+    def __run_no_pgbar(self) -> None:
+        start, stop = self.idx, self.broker.datafeed.data.shape[0]
         # stop - 1 to ensure an extra row is left for closing any remaining order and positions
         # order of the functions matters as we want orders to be filled on the next tick
         for self.idx in range(start, stop - 1):
             self.synchronize_indexes()
             self.broker.fill_orders()
             self.equity_curve.append(
-                [self.datafeed.get_datetime_index()[0], self.broker.current_equity]
+                [
+                    self.broker.datafeed.get_datetime_index()[0],
+                    self.broker.current_equity,
+                ]
             )
             self.strategy.next()
 
         self.broker.cancel_all_orders()
         self.broker.close_all_positions()
 
-    def results(self) -> dict:
-        return self.equity_curve, self.broker.trades
+    @staticmethod
+    def __print_progress_bar(
+        iteration: int,
+        total: int,
+        prefix: str = "",
+        suffix: str = "",
+        decimals: int = 1,
+        length: int = 100,
+        fill: str = "█",
+        printEnd: str = "\r",
+    ):
+        percent = ("{0:." + str(decimals) + "f}").format(
+            100 * (iteration / float(total))
+        )
+        filledLength = int(length * iteration // total)
+        bar = fill * filledLength + "-" * (length - filledLength)
+        print(f"\r{prefix} |{bar}| {percent}% {suffix}", end=printEnd)
+        # Print New Line on Complete
+        if iteration == total:
+            print("")
+
+    def __run_pgbar(self) -> None:
+        start, stop = self.idx, self.broker.datafeed.data.shape[0]
+        # stop - 1 to ensure an extra row is left for closing any remaining order and positions
+        # order of the functions matters as we want orders to be filled on the next tick
+        for self.idx in range(start, stop - 1):
+            self.synchronize_indexes()
+            self.broker.fill_orders()
+            self.equity_curve.append(
+                [
+                    self.broker.datafeed.get_datetime_index()[0],
+                    self.broker.current_equity,
+                ]
+            )
+            self.strategy.next()
+            self.__print_progress_bar(self.idx, stop - 1)
+
+        self.broker.cancel_all_orders()
+        self.broker.close_all_positions()
+
+    def run(self, progress: bool = True) -> None:
+        if progress:
+            self.__run_pgbar()
+        else:
+            self.__run_no_pgbar()
+
+    def results(self) -> dict[str, list]:
+        return {"Equity Curve": self.equity_curve, "Trades": self.broker.trades}

@@ -18,8 +18,8 @@ from common.exceptions import DataFeedError
 # @jitclass(spec)
 
 
-@cython.annotation_typing(True)
-@cython.cclass
+# @cython.annotation_typing(True)
+# @cython.cclass
 class DataFeed(ABC):
     idx: int
     symbols: dict[str, int]
@@ -55,8 +55,8 @@ class DataFeed(ABC):
         pass
 
 
-@cython.annotation_typing(True)
-@cython.cclass
+# @cython.annotation_typing(True)
+# @cython.cclass
 class HistoricDataFeed(DataFeed):
     offset: int
     symbols: dict[str, int]

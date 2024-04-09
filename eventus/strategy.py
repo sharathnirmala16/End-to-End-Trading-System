@@ -8,8 +8,8 @@ from eventus.datafeeds import DataFeed
 from eventus.indicators import Indicator
 
 
-@cython.annotation_typing(True)
-@cython.cclass
+# @cython.annotation_typing(True)
+# @cython.cclass
 class Strategy(ABC):
     """
     All indicators that are being used and computed should be added
@@ -23,7 +23,7 @@ class Strategy(ABC):
 
     def __init__(self, broker: Broker, datafeed: DataFeed) -> None:
         self.idx = 0
-        self.broker = Broker
+        self.broker = broker
         self.datafeed = datafeed
         self.indicators = {}
 
@@ -75,10 +75,10 @@ class Strategy(ABC):
             )
         )
 
-    def cancel_order(self, symbol: str, order_id: int) -> bool:
+    def cancel_order(self, symbol: str, order_id: int = np.nan) -> bool:
         return self.broker.cancel_order(symbol, order_id)
 
-    def close_position(self, symbol: str, position_id: int) -> bool:
+    def close_position(self, symbol: str, position_id: int = np.nan) -> bool:
         return self.broker.close_position(symbol, position_id)
 
     def synchronize_indexes(self) -> None:

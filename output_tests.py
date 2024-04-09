@@ -27,12 +27,12 @@ vendor = Yahoo(breeze_credentials)
 
 data = {
     "RELIANCE": pd.read_csv("nifty50_m1/RELIND.csv", index_col=0, parse_dates=True)[
-        :10000
+        :1000
     ],
     "AXISBANK": pd.read_csv("nifty50_m1/AXIBAN.csv", index_col=0, parse_dates=True)[
-        :10000
+        :1000
     ],
-    "CIPLA": pd.read_csv("nifty50_m1/CIPLA.csv", index_col=0, parse_dates=True)[:10000],
+    "CIPLA": pd.read_csv("nifty50_m1/CIPLA.csv", index_col=0, parse_dates=True)[:1000],
 }
 
 assets_data = AssetsData(data)

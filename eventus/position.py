@@ -19,8 +19,8 @@ from common.exceptions import PositionError
 # @jitclass(spec)
 
 
-@cython.annotation_typing(True)
-@cython.cclass
+# @cython.annotation_typing(True)
+# @cython.cclass
 class Position:
     position_count: int = 20000000
     position_id: int

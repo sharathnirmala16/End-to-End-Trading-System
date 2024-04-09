@@ -10,9 +10,12 @@ from eventus.datafeeds import DataFeed
 from eventus.commissions import Commission
 
 
-@cython.annotation_typing(True)
-@cython.cclass
+# @cython.annotation_typing(True)
+# @cython.cclass
 class Broker(ABC):
+    orders: dict[str, dict[int, Order]]
+    positions: dict[str, dict[int, Position]]
+    trades: list[Trade]
     cash: float
     leverage: float
     commission_model: Commission
@@ -64,8 +67,8 @@ class Broker(ABC):
         pass
 
 
-@cython.annotation_typing(True)
-@cython.cclass
+# @cython.annotation_typing(True)
+# @cython.cclass
 class Backtester(Broker):
     """
     leverage should be less than or equal to one,
@@ -75,9 +78,6 @@ class Backtester(Broker):
     """
 
     idx: int
-    orders: dict[str, dict[int, Order]]
-    positions: dict[str, dict[int, Position]]
-    trades: list[Trade]
     datafeed: DataFeed
 
     def __init__(
@@ -99,7 +99,7 @@ class Backtester(Broker):
         return self.commission_model.calculate_commission(
             (
                 self.datafeed.get_prices(order.symbol)[0]
-                if order.price == np.nan
+                if order.price is np.nan
                 else order.price
             ),
             order.size,
@@ -122,7 +122,8 @@ class Backtester(Broker):
 
     def __cancel_order(self, symbol: str, order_id: int) -> bool:
         order = self.orders[symbol].pop(order_id)
-        self.cash += (order.size * order.price) - order.margin_utilized
+        if order.order_type not in {"STOP_LOSS", "TAKE_PROFIT"}:
+            self.cash += (order.size * order.price) - order.margin_utilized
         return True
 
     def cancel_order(self, symbol: str, order_id: int = np.nan) -> bool:
@@ -148,7 +149,7 @@ class Backtester(Broker):
         return True
 
     def __fill_order(self, order: Order, price: float) -> None:
-        exec_price = price if order.price == np.nan else order.price
+        exec_price = price if order.price is np.nan else order.price
         comm = self.commission(order)
         if self.cash < comm:
             raise TradingError(f"Cash: {self.cash} is not enough to continue trading.")
@@ -173,7 +174,7 @@ class Backtester(Broker):
                 tp_order = Order(
                     symbol=pos.symbol,
                     order_type="TAKE_PROFIT",
-                    placed=pos.order_id,
+                    placed=pos.position_id,
                     size=pos.size,
                     price=pos.tp,
                 )
@@ -182,7 +183,8 @@ class Backtester(Broker):
     def fill_orders(self) -> None:
         for symbol in self.orders:
             if len(self.orders[symbol]) != 0:
-                for order_id in self.orders[symbol]:
+                order_ids = list(self.orders[symbol])
+                for order_id in order_ids:
                     order = self.orders[symbol][order_id]
                     price = self.datafeed.get_prices(order.symbol)[0]
                     if (
@@ -192,15 +194,17 @@ class Backtester(Broker):
                     ):
                         self.__fill_order(order, price)
                     elif order.order_type in {"STOP_LOSS", "TAKE_PROFIT"}:
-                        self.__close_sl_tp_orders(order)
+                        self.__fill_sl_tp_orders(order)
 
-    # NOTE: FINISH THIS AND FIX ERRORS
     def __clear_sl_tp_orders(self, symbol: str, position_to_close_id: int) -> None:
-        position_ids = list(self.positions[symbol].keys())
-        # filter sl and tp orders property placed based on position id which is closed and pop the orders by the order id
-        pass
+        order_ids = list(self.orders[symbol].keys())
+        for order_id in order_ids:
+            if self.orders[symbol][order_id].placed == position_to_close_id:
+                self.orders.pop(order_id)
 
-    def __close_sl_tp_orders(self, order: Order) -> None:
+    def __fill_sl_tp_orders(self, order: Order) -> None:
+        if order.placed not in self.positions[order.symbol]:
+            return
         pos_to_close = self.positions[order.symbol][order.placed]
         price = self.datafeed.get_prices(order.symbol)[0]
         if order.order_type == "STOP_LOSS":
@@ -227,6 +231,8 @@ class Backtester(Broker):
         self.cash += (position.size * current_price) - position.margin_utilized - comm
         if position.order_type == "SELL" or position.order_type == "SELL_LIMIT":
             self.cash += 2 * (position.price - current_price)
+        if position.order_type == "STOP_LOSS" or position.order_type == "TAKE_PROFIT":
+            self.__clear_sl_tp_orders(symbol, position_id)
         self.trades.append(
             Trade(position, current_price, self.datafeed.get_datetime_index()[0], comm)
         )
