@@ -4,7 +4,7 @@ import pandas as pd
 
 from typing import Type
 from abc import ABC, abstractmethod
-from common.exceptions import BacktestError
+from common.progress_bar import ProgressBar
 from eventus.strategy import Strategy
 from eventus.commissions import Commission
 from eventus.datafeeds import HistoricDataFeed
@@ -92,27 +92,6 @@ class BacktestExecutor(Executor):
         self.broker.cancel_all_orders()
         self.broker.close_all_positions()
 
-    @staticmethod
-    def __print_progress_bar(
-        iteration: int,
-        total: int,
-        prefix: str = "",
-        suffix: str = "",
-        decimals: int = 1,
-        length: int = 100,
-        fill: str = "█",
-        printEnd: str = "\r",
-    ):
-        percent = ("{0:." + str(decimals) + "f}").format(
-            100 * (iteration / float(total))
-        )
-        filledLength = int(length * iteration // total)
-        bar = fill * filledLength + "-" * (length - filledLength)
-        print(f"\r{prefix} |{bar}| {percent}% {suffix}", end=printEnd)
-        # Print New Line on Complete
-        if iteration == total:
-            print("")
-
     def __run_pgbar(self) -> None:
         start, stop = self.idx, self.broker.datafeed.data.shape[0]
         # stop - 1 to ensure an extra row is left for closing any remaining order and positions
@@ -127,7 +106,9 @@ class BacktestExecutor(Executor):
                 ]
             )
             self.strategy.next()
-            self.__print_progress_bar(self.idx, stop - 1)
+            ProgressBar.print_progress_bar(
+                self.idx, stop - 2, prefix="Backtest Progress: "
+            )
 
         self.broker.cancel_all_orders()
         self.broker.close_all_positions()
