@@ -24,3 +24,7 @@ class TradingError(Exception):
 
 class BacktestError(Exception):
     pass
+
+
+class SecuritiesMasterError(Exception):
+    pass

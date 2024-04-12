@@ -5,6 +5,7 @@ import pandas as pd
 from typing import Type
 from abc import ABC, abstractmethod
 from common.progress_bar import ProgressBar
+import progressbar
 from eventus.strategy import Strategy
 from eventus.commissions import Commission
 from eventus.datafeeds import HistoricDataFeed
@@ -92,26 +93,57 @@ class BacktestExecutor(Executor):
         self.broker.cancel_all_orders()
         self.broker.close_all_positions()
 
+    # def __run_pgbar(self) -> None:
+    #     start, stop = self.idx, self.broker.datafeed.data.shape[0]
+    #     # stop - 1 to ensure an extra row is left for closing any remaining order and positions
+    #     # order of the functions matters as we want orders to be filled on the next tick
+    #     for self.idx in range(start, stop - 1):
+    #         self.synchronize_indexes()
+    #         self.broker.fill_orders()
+    #         self.equity_curve.append(
+    #             [
+    #                 self.broker.datafeed.get_datetime_index()[0],
+    #                 self.broker.current_equity,
+    #             ]
+    #         )
+    #         self.strategy.next()
+    #         ProgressBar.print_progress_bar(
+    #             self.idx, stop - 2, prefix="Backtest Progress: "
+    #         )
+
+    #     self.broker.cancel_all_orders()
+    #     self.broker.close_all_positions()
+
     def __run_pgbar(self) -> None:
         start, stop = self.idx, self.broker.datafeed.data.shape[0]
         # stop - 1 to ensure an extra row is left for closing any remaining order and positions
         # order of the functions matters as we want orders to be filled on the next tick
-        for self.idx in range(start, stop - 1):
-            self.synchronize_indexes()
-            self.broker.fill_orders()
-            self.equity_curve.append(
-                [
-                    self.broker.datafeed.get_datetime_index()[0],
-                    self.broker.current_equity,
-                ]
-            )
-            self.strategy.next()
-            ProgressBar.print_progress_bar(
-                self.idx, stop - 2, prefix="Backtest Progress: "
-            )
+        widgets = [
+            " [",
+            progressbar.Timer(),
+            "] ",
+            " ",
+            progressbar.Percentage(),
+            " ",
+            progressbar.GranularBar(),
+            " ",
+            progressbar.AdaptiveETA(),
+        ]
+        with progressbar.ProgressBar(max_value=stop - 2, widgets=widgets) as bar:
+            for self.idx in range(start, stop - 1):
+                self.synchronize_indexes()
+                self.broker.fill_orders()
+                self.equity_curve.append(
+                    [
+                        self.broker.datafeed.get_datetime_index()[0],
+                        self.broker.current_equity,
+                    ]
+                )
+                self.strategy.next()
+                bar.update(self.idx)
 
-        self.broker.cancel_all_orders()
-        self.broker.close_all_positions()
+            self.broker.cancel_all_orders()
+            self.broker.close_all_positions()
 
     def run(self, progress: bool = True) -> None:
         if progress:

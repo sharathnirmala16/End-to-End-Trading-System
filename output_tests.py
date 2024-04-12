@@ -80,7 +80,7 @@ bt = BacktestExecutor(
     leverage=1.0,
     commission_model=PctFlatCommission(pct=0.05 / 100, amt=5),
 )
-bt.run(progress=True)
+bt.run(progress=False)
 end = time.time()
 res = bt.results()
 print(f"Execution Time: {end - start}s")
