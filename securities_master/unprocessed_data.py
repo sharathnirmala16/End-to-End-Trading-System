@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DownloadRequest:
-    ticker: str
+    symbol: str
     start_datetime: datetime
     end_datetime: datetime
 

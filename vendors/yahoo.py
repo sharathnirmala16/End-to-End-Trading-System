@@ -151,6 +151,7 @@ class Yahoo(Vendor):
                 results[symbol] = pd.DataFrame()
                 for col in cols:
                     results[symbol][col] = data[col][ticker]
+                    results[symbol].index.name = "Datetime"
                 if adjusted_prices:
                     results[symbol] = self.get_adjusted_values(results[symbol])
                 elif not adjusted_prices and drop_adjusted_prices:
