@@ -53,7 +53,10 @@ class SecuritiesMaster:
         try:
             self.__url = f"postgresql+psycopg2://{db_credentials['username']}:{db_credentials['password']}@{db_credentials['host']}:{db_credentials['port']}/securities_master"
             self.__engine = sqlalchemy.create_engine(
-                self.__url, isolation_level="AUTOCOMMIT"
+                self.__url,
+                isolation_level="AUTOCOMMIT",
+                pool_size=50,
+                max_overflow=0,
             )
             self.create_base_tables()
         except Exception as e:
@@ -506,6 +509,7 @@ class SecuritiesMaster:
         progress=False,
         **balancing_params,
     ) -> dict[str, pd.DataFrame]:
+        self.__logger.info("PRICES REQUESTED using get_prices()")
         if index == "":
             index = None
         if symbols == []:
@@ -587,7 +591,7 @@ class SecuritiesMaster:
         )
 
         if cache_data and len(downloaded_symbols) != 0:
-            with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
                 tasks = {
                     executor.submit(
                         self.cache_data_to_db,
@@ -604,4 +608,66 @@ class SecuritiesMaster:
                 }
                 concurrent.futures.wait(tasks)
 
+        self.synchronize_db_symbol_table(vendor_obj, exchange_obj, instrument)
+
         return data_dict
+
+    def synchronize_db_symbol_table(
+        self,
+        vendor_obj: Vendor,
+        exchange_obj: Exchange,
+        instrument: str,
+    ) -> None:
+        symbol_table = self.get_table("symbol")
+        db_price_tables = pd.read_sql(
+            sqlalchemy.text(
+                "SELECT table_name FROM information_schema.tables  WHERE table_name LIKE 'prices%'"
+            ),
+            con=self.__engine,
+        ).values
+
+        if symbol_table.shape[0] == db_price_tables.shape[0]:
+            return
+
+        for table_list in db_price_tables:
+            strings = table_list[0].split("_")
+            symbol = strings[1].upper()
+            vendor = self.vendors[strings[2].upper()]
+            exchange = self.exchanges[strings[3].upper()]
+            interval = self.intervals[strings[4]]
+            try:
+                self.get_row(
+                    "symbol",
+                    {
+                        "ticker": symbol,
+                        "vendor": vendor,
+                        "exchange": exchange,
+                        "interval": interval,
+                    },
+                )
+            except:
+                self.add_row(
+                    table_name="symbol",
+                    row_data={
+                        "ticker": symbol,
+                        "vendor_ticker": vendor_obj.get_vendor_ticker(
+                            symbol, exchange_obj
+                        ),
+                        "exchange": exchange,
+                        "vendor": vendor,
+                        "instrument": self.instruments[instrument],
+                        "name": symbol,
+                        "sector": self.__yahoo.get_symbol_details(
+                            symbol,
+                            exchange_obj,
+                        )["sector"],
+                        "interval": interval,
+                        "linked_table_name": table_list[0],
+                        "created_datetime": (
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        ),
+                        "last_updated_datetime": (
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        ),
+                    },
+                )
