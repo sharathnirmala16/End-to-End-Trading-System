@@ -72,7 +72,9 @@ class PricesTransformer:
     def drop_adj_close(self) -> None:
         for symbol in self.raw_data:
             if "Adj Close" in self.raw_data[symbol].columns:
-                self.raw_data[symbol] = self.raw_data[symbol].drop("Adj Close")
+                self.raw_data[symbol] = self.raw_data[symbol].drop(
+                    columns=["Adj Close"]
+                )
 
     def adj_internal_data(self, dataframe: pd.DataFrame) -> None:
         df = dataframe.copy(deep=True)

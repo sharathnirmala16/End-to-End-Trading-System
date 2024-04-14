@@ -7,7 +7,6 @@ doubts.ipynb
 nifty50_m1
 nifty50_m1.zip
 speed_tests.ipynb
-*.ipynb
 *.csv
 temp_test.py
 *.log
