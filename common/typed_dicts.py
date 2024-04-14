@@ -11,7 +11,7 @@ class VENDOR(TypedDict):
     def create(cls) -> VENDOR:
         return VENDOR(
             YAHOO="Yahoo Finance",
-            BREEZE="ICICI Direct Breeze API",
+            BREEZE="ICICI Breeze",
             ANGELBROKING="Angel Broking Smart API",
         )
 

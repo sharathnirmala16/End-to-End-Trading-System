@@ -75,6 +75,7 @@ class Yahoo(Vendor):
         index: str = None,
         adjusted_prices: bool = False,
         drop_adjusted_prices: bool = False,
+        **kwargs,
     ) -> dict[str, pd.DataFrame]:
         """Gets the symbols in the index, downloads the data, for each of
         them and processes those that are not empty before returning.\n
@@ -134,6 +135,7 @@ class Yahoo(Vendor):
                 interval=interval,
                 progress=False,
             )
+            results[symbol].index.name = "Datetime"
             if adjusted_prices:
                 results[symbol] = self.get_adjusted_values(results[symbol])
             elif not adjusted_prices and drop_adjusted_prices:

@@ -12,6 +12,7 @@ import concurrent.futures
 from sqlalchemy import sql, exc
 from sqlalchemy.orm import sessionmaker
 from vendors.vendor import Vendor
+from vendors.yahoo import Yahoo
 from exchanges.exchange import Exchange
 from datetime import datetime, timedelta
 from common.exceptions import SecuritiesMasterError
@@ -44,6 +45,9 @@ class SecuritiesMaster:
         self.exchanges = EXCHANGE.create()
         self.intervals = INTERVAL.create()
         self.instruments = INSTRUMENT.create()
+
+        # yahoo finance for additional data not found with other brokers
+        self.__yahoo = Yahoo({})
 
         # database connection objects
         try:
@@ -337,6 +341,7 @@ class SecuritiesMaster:
         interval: str,
         adjusted_prices: bool = False,
         drop_adjusted_prices: bool = False,
+        **balancing_params,
     ) -> tuple[dict[str, pd.DataFrame], set[str]]:
         grouped_requests: dict[tuple[datetime, datetime], list[str]] = (
             self.group_download_requests(unprocessed_data)
@@ -363,10 +368,11 @@ class SecuritiesMaster:
                     index=None,
                     adjusted_prices=adjusted_prices,
                     drop_adjusted_prices=drop_adjusted_prices,
+                    **balancing_params,
                 )
             )
             self.__logger.info(
-                f"Downloaded data for {grouped_requests[requests]} from {requests[0]} to {requests[0]}"
+                f"Downloaded data for {grouped_requests[requests]} from {requests[0]} to {requests[1]}"
             )
 
         for symbol in unprocessed_data:
@@ -439,7 +445,7 @@ class SecuritiesMaster:
                         "vendor": self.vendors[vendor],
                         "instrument": self.instruments[instrument],
                         "name": symbol,
-                        "sector": vendor_obj.get_symbol_details(
+                        "sector": self.__yahoo.get_symbol_details(
                             symbol,
                             exchange_obj,
                         )["sector"],
@@ -466,7 +472,7 @@ class SecuritiesMaster:
                         "vendor": self.vendors[vendor],
                         "instrument": self.instruments[instrument],
                         "name": symbol,
-                        "sector": vendor_obj.get_symbol_details(
+                        "sector": self.__yahoo.get_symbol_details(
                             symbol,
                             exchange_obj,
                         )["sector"],
@@ -496,10 +502,9 @@ class SecuritiesMaster:
         instrument: str,
         symbols: list[str] | None = None,
         index: str | None = None,
-        adjusted_prices: bool = False,
-        drop_adjusted_prices: bool = False,
         cache_data: bool = False,
         progress=False,
+        **balancing_params,
     ) -> dict[str, pd.DataFrame]:
         if index == "":
             index = None
@@ -576,8 +581,9 @@ class SecuritiesMaster:
             exchange_obj,
             vendor_obj,
             interval,
-            adjusted_prices,
-            drop_adjusted_prices,
+            adjusted_prices=False,
+            drop_adjusted_prices=False,
+            **balancing_params,
         )
 
         if cache_data and len(downloaded_symbols) != 0:

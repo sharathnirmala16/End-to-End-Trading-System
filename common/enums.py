@@ -5,7 +5,7 @@ from numba.experimental import jitclass
 
 class VENDOR(Enum):
     YAHOO = "Yahoo Finance"
-    BREEZE = "ICICI Direct Breeze API"
+    BREEZE = "ICICI Breeze"
     ANGELBROKING = "Angel Broking Smart API"
 
 

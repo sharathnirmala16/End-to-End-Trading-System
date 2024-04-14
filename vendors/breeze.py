@@ -85,6 +85,7 @@ class Breeze(Vendor):
         adjusted_prices: bool = False,
         drop_adjusted_prices: bool = False,
         balance_dataframes: bool = True,
+        **balancing_params,
     ) -> dict[str, pd.DataFrame]:
         if symbols is None and index is None:
             raise AttributeError(
@@ -166,7 +167,7 @@ class Breeze(Vendor):
                 )
 
             if balance_dataframes:
-                results = self.balance_dataframes(results, interval)
+                results = self.balance_dataframes(results, interval, **balancing_params)
 
         return results
 
@@ -178,12 +179,25 @@ class Breeze(Vendor):
         filter_time: bool = True,
         filter_start_time="9:15",
         filter_end_time="15:30",
+        index_combination="union",
     ) -> dict[str, pd.DataFrame]:
         combined_index = results[list(results.keys())[0]].index
-        for symbol in results:
-            results[symbol] = results[symbol][~results[symbol].index.duplicated()]
-            combined_index = pd.Index.union(combined_index, results[symbol].index)
-        combined_index = combined_index.drop_duplicates()
+        if index_combination == "union":
+            for symbol in results:
+                results[symbol] = results[symbol][~results[symbol].index.duplicated()]
+                combined_index = pd.Index.union(combined_index, results[symbol].index)
+            combined_index = combined_index.drop_duplicates()
+        elif index_combination == "intersection":
+            for symbol in results:
+                results[symbol] = results[symbol][~results[symbol].index.duplicated()]
+                combined_index = pd.Index.intersection(
+                    combined_index, results[symbol].index
+                )
+            combined_index = combined_index.drop_duplicates()
+        else:
+            raise BreezeError(
+                f"index_combination={index_combination} is unknown, only 'union' and 'intersection' are supported"
+            )
 
         for symbol in results:
             results[symbol] = (

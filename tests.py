@@ -6,20 +6,17 @@ import yfinance as yf
 import credentials
 from common.enums import *
 from common.exceptions import *
-from backtester.commission import *
 from exchanges.nse import Nse
 from vendors.vendor import Vendor
 from vendors.yahoo import Yahoo
 from vendors.breeze import Breeze
 from datetime import datetime, timedelta
-from backtester.assets_data import AssetsData
 from eventus.order import Order
 from eventus.position import Position
 from eventus.trade import Trade
-from backtester.commission import *
-from backtester.back_datafeed import BackDataFeed
 from eventus.datafeeds import HistoricDataFeed
 from eventus.indicators import *
+from eventus.commissions import *
 
 
 class TestNse:
@@ -405,104 +402,104 @@ class TestBreeze:
         assert len(self.breeze.get_symbol_details("TATAMOTORS", exchange=self.nse)) > 0
 
 
-class TestAssetsDataWithMocks:
-    def setup_method(self):
-        self.cols = ["Open", "High", "Low", "Close", "Volume"]
-        self.tickers = [
-            "HDFCBANK.NS",
-            "INFY.NS",
-            "RELIANCE.NS",
-            "TATAMOTORS.NS",
-            "TATASTEEL.NS",
-            "TCS.NS",
-        ]
+# class TestAssetsDataWithMocks:
+#     def setup_method(self):
+#         self.cols = ["Open", "High", "Low", "Close", "Volume"]
+#         self.tickers = [
+#             "HDFCBANK.NS",
+#             "INFY.NS",
+#             "RELIANCE.NS",
+#             "TATAMOTORS.NS",
+#             "TATASTEEL.NS",
+#             "TCS.NS",
+#         ]
 
-        self.mock_data = pd.read_csv(
-            "mock_data/mock_data.csv", index_col=0, parse_dates=True
-        )
-        self.mock_data_dict = {ticker: self.mock_data for ticker in self.tickers}
-        self.mock_assets_data = AssetsData(self.mock_data_dict)
+#         self.mock_data = pd.read_csv(
+#             "mock_data/mock_data.csv", index_col=0, parse_dates=True
+#         )
+#         self.mock_data_dict = {ticker: self.mock_data for ticker in self.tickers}
+#         self.mock_assets_data = AssetsData(self.mock_data_dict)
 
-        self.mock_arr: np.ndarray[np.float64] = np.zeros(shape=(49, 31))
-        self.mock_arr[:, 0] = self.mock_data.index.values.astype(np.float64)
-        start, end = 1, 6
-        for ticker in self.tickers:
-            self.mock_arr[:, start:end] = self.mock_data_dict[ticker].values
-            start = end
-            end += 5
+#         self.mock_arr: np.ndarray[np.float64] = np.zeros(shape=(49, 31))
+#         self.mock_arr[:, 0] = self.mock_data.index.values.astype(np.float64)
+#         start, end = 1, 6
+#         for ticker in self.tickers:
+#             self.mock_arr[:, start:end] = self.mock_data_dict[ticker].values
+#             start = end
+#             end += 5
 
-    def dt_arr(self):
-        return self.mock_data.index.values.astype(np.float64)
+#     def dt_arr(self):
+#         return self.mock_data.index.values.astype(np.float64)
 
-    def test_backtesting_mode_no_data(self):
-        with pytest.raises(AttributeError):
-            AssetsData()
+#     def test_backtesting_mode_no_data(self):
+#         with pytest.raises(AttributeError):
+#             AssetsData()
 
-    def test_constructor(self):
-        arr: np.ndarray[np.float64] = self.mock_assets_data.data_array
-        assert np.array_equal(arr, self.mock_arr)
+#     def test_constructor(self):
+#         arr: np.ndarray[np.float64] = self.mock_assets_data.data_array
+#         assert np.array_equal(arr, self.mock_arr)
 
-    def test_indexing_int(self):
-        assert np.array_equal(self.mock_arr[0], self.mock_assets_data[0])
-        assert np.array_equal(self.mock_arr[-1], self.mock_assets_data[-1])
+#     def test_indexing_int(self):
+#         assert np.array_equal(self.mock_arr[0], self.mock_assets_data[0])
+#         assert np.array_equal(self.mock_arr[-1], self.mock_assets_data[-1])
 
-    def test_indexing_ticker(self):
-        arr: np.ndarray[np.float64] = (
-            self.mock_data_dict[self.tickers[0]].reset_index().values
-        )
-        arr[:, 0] = self.dt_arr()
-        assert np.array_equal(arr, self.mock_assets_data[self.tickers[0]])
+#     def test_indexing_ticker(self):
+#         arr: np.ndarray[np.float64] = (
+#             self.mock_data_dict[self.tickers[0]].reset_index().values
+#         )
+#         arr[:, 0] = self.dt_arr()
+#         assert np.array_equal(arr, self.mock_assets_data[self.tickers[0]])
 
-    def test_indexing_column(self):
-        arr: np.ndarray[np.float64] = np.zeros(shape=(49, 7))
-        arr[:, 0] = self.dt_arr()
-        for i in range(1, len(self.tickers) + 1):
-            arr[:, i] = self.mock_data_dict[self.tickers[i - 1]][self.cols[-2]].values
-        assert np.array_equal(arr, self.mock_assets_data[self.cols[-2]])
+#     def test_indexing_column(self):
+#         arr: np.ndarray[np.float64] = np.zeros(shape=(49, 7))
+#         arr[:, 0] = self.dt_arr()
+#         for i in range(1, len(self.tickers) + 1):
+#             arr[:, i] = self.mock_data_dict[self.tickers[i - 1]][self.cols[-2]].values
+#         assert np.array_equal(arr, self.mock_assets_data[self.cols[-2]])
 
-    @pytest.mark.parametrize("col_number", list(range(0, 5)))
-    def test_indexing_ticker_column(self, col_number):
-        arr: np.ndarray[np.float64] = np.zeros(shape=(49, 2))
-        arr[:, 0] = self.dt_arr()
-        arr[:, 1] = self.mock_data_dict[self.tickers[0]][self.cols[col_number]].values
-        print(self.mock_assets_data["Datetime"])
-        assert np.array_equal(
-            arr, self.mock_assets_data[[self.tickers[0], self.cols[col_number]]]
-        )
+#     @pytest.mark.parametrize("col_number", list(range(0, 5)))
+#     def test_indexing_ticker_column(self, col_number):
+#         arr: np.ndarray[np.float64] = np.zeros(shape=(49, 2))
+#         arr[:, 0] = self.dt_arr()
+#         arr[:, 1] = self.mock_data_dict[self.tickers[0]][self.cols[col_number]].values
+#         print(self.mock_assets_data["Datetime"])
+#         assert np.array_equal(
+#             arr, self.mock_assets_data[[self.tickers[0], self.cols[col_number]]]
+#         )
 
-    @pytest.mark.parametrize("index", list(range(-1, 5)))
-    def test_indexing_ticker_int(self, index):
-        arr: np.ndarray[np.float64] = np.zeros(shape=(1, 6))
-        arr[:, 0] = self.dt_arr()[index]
-        arr[:, 1:] = self.mock_data_dict[self.tickers[0]].values[index]
+#     @pytest.mark.parametrize("index", list(range(-1, 5)))
+#     def test_indexing_ticker_int(self, index):
+#         arr: np.ndarray[np.float64] = np.zeros(shape=(1, 6))
+#         arr[:, 0] = self.dt_arr()[index]
+#         arr[:, 1:] = self.mock_data_dict[self.tickers[0]].values[index]
 
-        assert np.array_equal(arr, self.mock_assets_data[[self.tickers[0], index]])
+#         assert np.array_equal(arr, self.mock_assets_data[[self.tickers[0], index]])
 
-    @pytest.mark.parametrize("index", list(range(-1, 5)))
-    def test_indexing_column_int(self, index):
-        arr: np.ndarray[np.float64] = np.zeros(shape=(1, 7))
-        arr[:, 0] = self.dt_arr()[index]
-        for i in range(1, len(self.tickers) + 1):
-            arr[:, i] = self.mock_data_dict[self.tickers[i - 1]][self.cols[0]].values[
-                index
-            ]
+#     @pytest.mark.parametrize("index", list(range(-1, 5)))
+#     def test_indexing_column_int(self, index):
+#         arr: np.ndarray[np.float64] = np.zeros(shape=(1, 7))
+#         arr[:, 0] = self.dt_arr()[index]
+#         for i in range(1, len(self.tickers) + 1):
+#             arr[:, i] = self.mock_data_dict[self.tickers[i - 1]][self.cols[0]].values[
+#                 index
+#             ]
 
-        assert np.array_equal(arr, self.mock_assets_data[[self.cols[0], index]])
+#         assert np.array_equal(arr, self.mock_assets_data[[self.cols[0], index]])
 
-    @pytest.mark.parametrize("index", list(range(-1, 5)))
-    def test_indexing_ticker_column_int(self, index):
-        arr: np.ndarray[np.float64] = np.zeros(shape=(1, 2))
-        arr[:, 0] = self.dt_arr()[index]
-        arr[:, 1] = self.mock_data_dict[self.tickers[index]][self.cols[index]].values[
-            index
-        ]
-        assert np.array_equal(
-            arr[0],
-            self.mock_assets_data[[self.tickers[index], self.cols[index], index]],
-        )
+#     @pytest.mark.parametrize("index", list(range(-1, 5)))
+#     def test_indexing_ticker_column_int(self, index):
+#         arr: np.ndarray[np.float64] = np.zeros(shape=(1, 2))
+#         arr[:, 0] = self.dt_arr()[index]
+#         arr[:, 1] = self.mock_data_dict[self.tickers[index]][self.cols[index]].values[
+#             index
+#         ]
+#         assert np.array_equal(
+#             arr[0],
+#             self.mock_assets_data[[self.tickers[index], self.cols[index], index]],
+#         )
 
-    def test_index(self):
-        assert np.array_equal(self.mock_assets_data.index, self.dt_arr())
+#     def test_index(self):
+#         assert np.array_equal(self.mock_assets_data.index, self.dt_arr())
 
 
 class TestOrder:
@@ -707,186 +704,186 @@ class TestCommissionModels:
         assert 20 == comm.calculate_commission(1000, 100)
 
 
-class TestBackDataFeedWithMocks:
-    def setup_method(self):
-        self.cols = ["Open", "High", "Low", "Close", "Volume"]
-        self.tickers = [
-            "HDFCBANK.NS",
-            "INFY.NS",
-            "RELIANCE.NS",
-            "TATAMOTORS.NS",
-            "TATASTEEL.NS",
-            "TCS.NS",
-        ]
+# class TestBackDataFeedWithMocks:
+#     def setup_method(self):
+#         self.cols = ["Open", "High", "Low", "Close", "Volume"]
+#         self.tickers = [
+#             "HDFCBANK.NS",
+#             "INFY.NS",
+#             "RELIANCE.NS",
+#             "TATAMOTORS.NS",
+#             "TATASTEEL.NS",
+#             "TCS.NS",
+#         ]
 
-        self.mock_data = pd.read_csv(
-            "mock_data/mock_data.csv", index_col=0, parse_dates=True
-        )
-        self.mock_data_dict = {ticker: self.mock_data for ticker in self.tickers}
+#         self.mock_data = pd.read_csv(
+#             "mock_data/mock_data.csv", index_col=0, parse_dates=True
+#         )
+#         self.mock_data_dict = {ticker: self.mock_data for ticker in self.tickers}
 
-        self.back_data_feed = BackDataFeed(
-            self.mock_data_dict, list(self.mock_data_dict.keys())
-        )
-        self.mock_assets_data = AssetsData(self.mock_data_dict)
+#         self.back_data_feed = BackDataFeed(
+#             self.mock_data_dict, list(self.mock_data_dict.keys())
+#         )
+#         self.mock_assets_data = AssetsData(self.mock_data_dict)
 
-        self.mock_arr: np.ndarray[np.float64] = np.zeros(shape=(49, 31))
-        self.mock_arr[:, 0] = self.mock_data.index.values.astype(np.float64)
-        start, end = 1, 6
-        for ticker in self.tickers:
-            self.mock_arr[:, start:end] = self.mock_data_dict[ticker].values
-            start = end
-            end += 5
+#         self.mock_arr: np.ndarray[np.float64] = np.zeros(shape=(49, 31))
+#         self.mock_arr[:, 0] = self.mock_data.index.values.astype(np.float64)
+#         start, end = 1, 6
+#         for ticker in self.tickers:
+#             self.mock_arr[:, start:end] = self.mock_data_dict[ticker].values
+#             start = end
+#             end += 5
 
-        self.ma_indicator = MovingAverage(self.mock_assets_data, self.tickers, period=3)
-        self.back_data_feed.add_indicator(self.ma_indicator, name="MA")
+#         self.ma_indicator = MovingAverage(self.mock_assets_data, self.tickers, period=3)
+#         self.back_data_feed.add_indicator(self.ma_indicator, name="MA")
 
-    def test_data_property(self):
-        assert np.array_equal(
-            self.mock_assets_data.data_array, self.back_data_feed.data.data_array
-        )
+#     def test_data_property(self):
+#         assert np.array_equal(
+#             self.mock_assets_data.data_array, self.back_data_feed.data.data_array
+#         )
 
-    def test_bid_price(self):
-        assert (
-            self.back_data_feed.bid_price(self.tickers[-1])
-            == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
-                self.back_data_feed.idx
-            ]
-        )
+#     def test_bid_price(self):
+#         assert (
+#             self.back_data_feed.bid_price(self.tickers[-1])
+#             == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
+#                 self.back_data_feed.idx
+#             ]
+#         )
 
-    def test_ask_price(self):
-        assert (
-            self.back_data_feed.ask_price(self.tickers[-1])
-            == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
-                self.back_data_feed.idx
-            ]
-        )
+#     def test_ask_price(self):
+#         assert (
+#             self.back_data_feed.ask_price(self.tickers[-1])
+#             == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
+#                 self.back_data_feed.idx
+#             ]
+#         )
 
-    def test_spot_price(self):
-        assert (
-            self.back_data_feed.spot_price(self.tickers[-1])
-            == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
-                self.back_data_feed.idx
-            ]
-        )
+#     def test_spot_price(self):
+#         assert (
+#             self.back_data_feed.spot_price(self.tickers[-1])
+#             == self.mock_data_dict[self.tickers[-1]]["Close"].iloc[
+#                 self.back_data_feed.idx
+#             ]
+#         )
 
-    def test_indicators(self):
-        assert self.back_data_feed.indicators == {"MA": self.ma_indicator}
+#     def test_indicators(self):
+#         assert self.back_data_feed.indicators == {"MA": self.ma_indicator}
 
-    @pytest.mark.parametrize("key", [-1, -2, slice(-5, -1)])
-    def test_indicator(self, key: int | slice):
-        if isinstance(key, int):
-            self.back_data_feed.idx = 20
-            assert np.array_equal(
-                self.back_data_feed.indicator("INFY.NS", "MA", key),
-                self.ma_indicator[["INFY.NS", self.back_data_feed.idx + key + 1]],
-            )
-            self.back_data_feed.idx = 0
+#     @pytest.mark.parametrize("key", [-1, -2, slice(-5, -1)])
+#     def test_indicator(self, key: int | slice):
+#         if isinstance(key, int):
+#             self.back_data_feed.idx = 20
+#             assert np.array_equal(
+#                 self.back_data_feed.indicator("INFY.NS", "MA", key),
+#                 self.ma_indicator[["INFY.NS", self.back_data_feed.idx + key + 1]],
+#             )
+#             self.back_data_feed.idx = 0
 
-        elif isinstance(key, slice):
-            self.back_data_feed.idx = 20
-            assert np.array_equal(
-                self.back_data_feed.indicator("INFY.NS", "MA", key),
-                self.ma_indicator["INFY.NS"][
-                    self.back_data_feed.idx
-                    + key.start
-                    + 1 : self.back_data_feed.idx
-                    + key.stop
-                    + 1
-                ],
-            )
-            self.back_data_feed.idx = 0
+#         elif isinstance(key, slice):
+#             self.back_data_feed.idx = 20
+#             assert np.array_equal(
+#                 self.back_data_feed.indicator("INFY.NS", "MA", key),
+#                 self.ma_indicator["INFY.NS"][
+#                     self.back_data_feed.idx
+#                     + key.start
+#                     + 1 : self.back_data_feed.idx
+#                     + key.stop
+#                     + 1
+#                 ],
+#             )
+#             self.back_data_feed.idx = 0
 
-    @pytest.mark.parametrize("key", [-2, slice(-5, -1)])
-    def test_indicator_error(self, key: int | slice):
-        with pytest.raises(KeyError):
-            self.back_data_feed.indicator("INFY.NS", "MA", key)
+#     @pytest.mark.parametrize("key", [-2, slice(-5, -1)])
+#     def test_indicator_error(self, key: int | slice):
+#         with pytest.raises(KeyError):
+#             self.back_data_feed.indicator("INFY.NS", "MA", key)
 
-    @pytest.mark.parametrize("key", [-1, -2, slice(-5, -1)])
-    def test_price(self, key: int | slice):
-        if isinstance(key, int):
-            self.back_data_feed.idx = 20
-            assert np.array_equal(
-                self.back_data_feed.price("TCS.NS", "Open", key),
-                self.mock_assets_data[
-                    ["TCS.NS", "Open", self.back_data_feed.idx + key + 1]
-                ],
-            )
-            self.back_data_feed.idx = 0
+#     @pytest.mark.parametrize("key", [-1, -2, slice(-5, -1)])
+#     def test_price(self, key: int | slice):
+#         if isinstance(key, int):
+#             self.back_data_feed.idx = 20
+#             assert np.array_equal(
+#                 self.back_data_feed.price("TCS.NS", "Open", key),
+#                 self.mock_assets_data[
+#                     ["TCS.NS", "Open", self.back_data_feed.idx + key + 1]
+#                 ],
+#             )
+#             self.back_data_feed.idx = 0
 
-        elif isinstance(key, slice):
-            self.back_data_feed.idx = 20
-            assert np.array_equal(
-                self.back_data_feed.price("TCS.NS", "Open", key),
-                self.mock_assets_data[["TCS.NS", "Open"]][
-                    self.back_data_feed.idx
-                    + key.start
-                    + 1 : self.back_data_feed.idx
-                    + key.stop
-                    + 1
-                ],
-            )
-            self.back_data_feed.idx = 0
+#         elif isinstance(key, slice):
+#             self.back_data_feed.idx = 20
+#             assert np.array_equal(
+#                 self.back_data_feed.price("TCS.NS", "Open", key),
+#                 self.mock_assets_data[["TCS.NS", "Open"]][
+#                     self.back_data_feed.idx
+#                     + key.start
+#                     + 1 : self.back_data_feed.idx
+#                     + key.stop
+#                     + 1
+#                 ],
+#             )
+#             self.back_data_feed.idx = 0
 
 
-class TestIndicator:
-    def setup_method(self):
-        self.nse = Nse()
-        self.vendor = Yahoo({})
-        self.symbols = ["HCLTECH", "ACC", "AUROPHARMA"]
+# class TestIndicator:
+#     def setup_method(self):
+#         self.nse = Nse()
+#         self.vendor = Yahoo({})
+#         self.symbols = ["HCLTECH", "ACC", "AUROPHARMA"]
 
-        self.data = self.vendor.get_data(
-            interval=INTERVAL.d1,
-            exchange=self.nse,
-            start_datetime=(datetime.today() - timedelta(days=365)),
-            end_datetime=datetime.today(),
-            symbols=self.symbols,
-            adjusted_prices=True,
-        )
+#         self.data = self.vendor.get_data(
+#             interval=INTERVAL.d1,
+#             exchange=self.nse,
+#             start_datetime=(datetime.today() - timedelta(days=365)),
+#             end_datetime=datetime.today(),
+#             symbols=self.symbols,
+#             adjusted_prices=True,
+#         )
 
-        self.assets_data = AssetsData(self.data)
-        self.indicator = MovingAverage(self.assets_data, self.symbols, period=9)
+#         self.assets_data = AssetsData(self.data)
+#         self.indicator = MovingAverage(self.assets_data, self.symbols, period=9)
 
-        for symbol in self.symbols:
-            self.data[symbol]["MovingAverage"] = (
-                self.data[symbol]["Close"].rolling(9).mean()
-            )
+#         for symbol in self.symbols:
+#             self.data[symbol]["MovingAverage"] = (
+#                 self.data[symbol]["Close"].rolling(9).mean()
+#             )
 
-    @pytest.mark.parametrize("symbol", ["HCLTECH", "ACC", "AUROPHARMA"])
-    def test_indexing_symbol(self, symbol: str):
-        assert (
-            self.indicator[symbol][:, 1].shape
-            == self.data[symbol]["MovingAverage"].values.shape
-        )
-        assert (
-            self.indicator[symbol][:, 1][-1]
-            == self.data[symbol]["MovingAverage"].values[-1]
-        )
+#     @pytest.mark.parametrize("symbol", ["HCLTECH", "ACC", "AUROPHARMA"])
+#     def test_indexing_symbol(self, symbol: str):
+#         assert (
+#             self.indicator[symbol][:, 1].shape
+#             == self.data[symbol]["MovingAverage"].values.shape
+#         )
+#         assert (
+#             self.indicator[symbol][:, 1][-1]
+#             == self.data[symbol]["MovingAverage"].values[-1]
+#         )
 
-    def test_indexing_int(self):
-        arr: np.ndarray[np.float64] = np.zeros(
-            shape=(self.assets_data.data_array.shape[0], 4)
-        )
-        arr[:, 0] = self.assets_data.index
-        for i, symbol in enumerate(self.symbols):
-            arr[:, i + 1] = self.data[symbol]["MovingAverage"].values
+#     def test_indexing_int(self):
+#         arr: np.ndarray[np.float64] = np.zeros(
+#             shape=(self.assets_data.data_array.shape[0], 4)
+#         )
+#         arr[:, 0] = self.assets_data.index
+#         for i, symbol in enumerate(self.symbols):
+#             arr[:, i + 1] = self.data[symbol]["MovingAverage"].values
 
-        assert np.array_equal(arr[-1], self.indicator[-1])
+#         assert np.array_equal(arr[-1], self.indicator[-1])
 
-    def test_indexing_symbol_int(self):
-        arr: np.ndarray[np.float64] = np.zeros(
-            shape=(self.assets_data.data_array.shape[0], 4)
-        )
-        arr[:, 0] = self.assets_data.index
-        for i, symbol in enumerate(self.symbols):
-            arr[:, i + 1] = self.data[symbol]["MovingAverage"].values
+#     def test_indexing_symbol_int(self):
+#         arr: np.ndarray[np.float64] = np.zeros(
+#             shape=(self.assets_data.data_array.shape[0], 4)
+#         )
+#         arr[:, 0] = self.assets_data.index
+#         for i, symbol in enumerate(self.symbols):
+#             arr[:, i + 1] = self.data[symbol]["MovingAverage"].values
 
-        assert np.array_equal(arr[-1, 0:2], self.indicator[["HCLTECH", -1]])
-        assert np.array_equal(
-            np.array([arr[-1, 0], arr[-1, 2]]), self.indicator[["ACC", -1]]
-        )
-        assert np.array_equal(
-            np.array([arr[-1, 0], arr[-1, 3]]), self.indicator[["AUROPHARMA", -1]]
-        )
+#         assert np.array_equal(arr[-1, 0:2], self.indicator[["HCLTECH", -1]])
+#         assert np.array_equal(
+#             np.array([arr[-1, 0], arr[-1, 2]]), self.indicator[["ACC", -1]]
+#         )
+#         assert np.array_equal(
+#             np.array([arr[-1, 0], arr[-1, 3]]), self.indicator[["AUROPHARMA", -1]]
+#         )
 
 
 class TestMovingAverage:

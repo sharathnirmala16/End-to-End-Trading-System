@@ -29,6 +29,7 @@ class Vendor(ABC):
         index: str = None,
         adjusted_prices: bool = False,
         drop_adjusted_prices: bool = False,
+        **kwargs
     ) -> dict[str, pd.DataFrame]:
         pass
 

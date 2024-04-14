@@ -20,32 +20,14 @@ sm = SecuritiesMaster(
 
 print(
     sm.get_prices(
-        interval="d1",
-        start_datetime=datetime(2018, 6, 1),
-        end_datetime=datetime(2020, 6, 1),
-        vendor="YAHOO",
+        interval="m1",
+        start_datetime=datetime(2022, 12, 31),
+        end_datetime=datetime(2024, 1, 1),
+        vendor="BREEZE",
         exchange="NSE",
         instrument="STOCK",
-        symbols=None,
-        index="NIFTY50",
-        adjusted_prices=False,
-        drop_adjusted_prices=False,
+        symbols=["TATAINVEST", "EXIDEIND", "SUZLON"],
+        index=None,
         cache_data=True,
     )
 )
-print(sm.get_table("symbol"))
-# print(
-#     sm.get_prices(
-#         interval="d1",
-#         start_datetime=datetime(2018, 1, 1),
-#         end_datetime=datetime(2019, 1, 1),
-#         vendor="YAHOO",
-#         exchange="NSE",
-#         instrument="STOCK",
-#         symbols=["TCS", "LT", "RELIANCE"],
-#         index=None,
-#         adjusted_prices=False,
-#         drop_adjusted_prices=False,
-#         cache_data=False,
-#     )
-# )
