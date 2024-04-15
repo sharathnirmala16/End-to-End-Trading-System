@@ -33,6 +33,11 @@ data = {
     "AXISBANK": pd.read_csv("nifty50_m1/AXIBAN.csv", index_col=0, parse_dates=True),
     "CIPLA": pd.read_csv("nifty50_m1/CIPLA.csv", index_col=0, parse_dates=True),
 }
+# data = {
+#     "RELIANCE": pd.read_csv("mock_data/mock_data2.csv", index_col=0, parse_dates=True),
+#     "AXISBANK": pd.read_csv("mock_data/mock_data2.csv", index_col=0, parse_dates=True),
+#     "CIPLA": pd.read_csv("mock_data/mock_data2.csv", index_col=0, parse_dates=True),
+# }
 
 
 dt_index = data["RELIANCE"].index.values.astype(np.float64)

@@ -39,6 +39,10 @@ class DataFeed(ABC):
         pass
 
     @abstractmethod
+    def full_prices_all_symbols(self, price: str = "Close") -> np.ndarray[np.float64]:
+        pass
+
+    @abstractmethod
     def get_datetime_index(self, window: int = 1) -> np.ndarray[np.float64]:
         pass
 
@@ -51,6 +55,12 @@ class DataFeed(ABC):
     @abstractmethod
     def get_symbol_all_prices(
         self, symbol: str, window: int = 1
+    ) -> np.ndarray[np.float64]:
+        pass
+
+    @abstractmethod
+    def get_prices_all_symbols(
+        self, window: int = 1, price: str = "Close"
     ) -> np.ndarray[np.float64]:
         pass
 
@@ -119,6 +129,9 @@ class HistoricDataFeed(DataFeed):
             + 1,
         ]
 
+    def full_prices_all_symbols(self, price: str = "Close") -> np.ndarray[np.float64]:
+        return self.data[:, self.cols_dict[price] :: self.offset]
+
     def get_datetime_index(self, window: int = 1) -> np.ndarray[np.float64]:
         """in-sync with the idx"""
         return self.data[max(self.idx - window + 1, 0) : self.idx + 1, 0]
@@ -144,4 +157,13 @@ class HistoricDataFeed(DataFeed):
             + 1 : self.offset * self.symbols[symbol]
             + self.cols_dict[col_list[-1]]
             + 1,
+        ]
+
+    def get_prices_all_symbols(
+        self, window: int = 1, price: str = "Close"
+    ) -> np.ndarray[np.float64]:
+        """in-sync with the idx"""
+        return self.data[
+            max(self.idx - window + 1, 0) : self.idx + 1,
+            self.cols_dict[price] :: self.offset,
         ]
