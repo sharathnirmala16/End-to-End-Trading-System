@@ -46,8 +46,9 @@ class BacktestExecutor(Executor):
         cash: float,
         leverage: float,
         commission_model: Commission,
+        offset: int = 0,
     ) -> None:
-        self.idx = 0
+        self.idx = offset
         self.equity_curve = []
         datafeed = HistoricDataFeed(datetime_index, data_dict)
         self.broker: Backtester = Backtester(cash, leverage, commission_model, datafeed)
@@ -65,6 +66,8 @@ class BacktestExecutor(Executor):
         return np.max(res[:, 0]) + 1
 
     def compute_idx_offset(self) -> None:
+        if len(self.strategy.indicators) == 0:
+            return
         self.idx = max(
             self.idx, max(map(self.indicator_offset, self.strategy.indicators.keys()))
         )

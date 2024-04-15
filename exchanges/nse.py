@@ -10,6 +10,7 @@ class NSE_INDEX(Enum):
     ALL_TICKERS = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
     NIFTY50 = "https://archives.nseindia.com/content/indices/ind_nifty50list.csv"
     NIFTY100 = "https://www.niftyindices.com/IndexConstituent/ind_nifty100list.csv"
+    NIFTY200 = "https://nsearchives.nseindia.com/content/indices/ind_nifty200list.csv"
     NIFTY500 = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
     NIFTYMIDCAP150 = (
         "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap150list.csv"
@@ -91,3 +92,20 @@ class Nse(Exchange):
         df = pd.read_csv(data, sep=",")
         df.columns = df.columns.str.strip()
         return df
+
+    def get_symbols_listing_date(self, index: str) -> pd.DataFrame:
+        try:
+            index_enum: NSE_INDEX = NSE_INDEX.__members__[index]
+        except KeyError:
+            raise ValueError(f"No member named '{index}' in {NSE_INDEX.__name__}")
+
+        if index == "ALL_TICKERS":
+            res_df = self.get_symbols_detailed(index)
+            res_df = res_df.set_index("SYMBOL")
+        else:
+            all_df = self.get_symbols_detailed("ALL_TICKERS").set_index("SYMBOL")
+            all_df["DATE OF LISTING"] = pd.to_datetime(all_df["DATE OF LISTING"])
+            index_df = self.get_symbols_detailed(index).set_index("Symbol")
+
+            final_df = index_df.join(all_df, how="inner")
+            return final_df

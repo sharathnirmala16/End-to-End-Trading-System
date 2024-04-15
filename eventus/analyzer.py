@@ -28,7 +28,7 @@ class Analyzer:
         self.results["CAGR (Ann.) [%]"] = self.cagr(
             self.results["Starting Equity [$]"],
             self.results["Ending Equity [$]"],
-            self.results["Trading Duration [d]"],
+            self.total_trade_duration(result_unit="years"),
         )
         self.results["Volatility (Ann.) [%]"] = self.volatility(self.equity_curve)
         self.results["Portfolio Sharpe Ratio"] = self.sharpe(
