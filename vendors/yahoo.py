@@ -16,6 +16,7 @@ class EXCHANGE_SUFFIX(Enum):
 class YFINANCE_BENCHMARK_INDEX(Enum):
     NIFTY50 = "^NSEI"
     NIFTY100 = "^CNX100"
+    NIFTY200 = "^CNX200"
     NIFTY500 = "^CRSLDX"
     NIFTYMIDCAP150 = "NIFTYMIDCAP150.NS"
     NIFTYSMALLCAP250 = "NIFTYSMLCAP250.NS"
@@ -164,5 +165,16 @@ class Yahoo(Vendor):
     def get_symbol_details(self, symbol: str, exchange: Exchange) -> dict:
         return yf.Ticker(self.get_vendor_ticker(symbol, exchange)).info
 
+    def get_specific_symbol_detail(
+        self, symbol: str, exchange: Exchange, detail: str
+    ) -> str:
+        info = yf.Ticker(self.get_vendor_ticker(symbol, exchange)).info
+        if detail not in info:
+            return "NOTSPECIFIED"
+        else:
+            return info[detail]
+
     def get_vendor_ticker(self, symbol: str, exchange: Exchange) -> str:
+        if symbol in YFINANCE_BENCHMARK_INDEX._member_names_:
+            return YFINANCE_BENCHMARK_INDEX._member_map_[symbol].value
         return f"{symbol}.{EXCHANGE_SUFFIX.__members__[exchange.abbreviation].value}"

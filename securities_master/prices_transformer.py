@@ -14,7 +14,7 @@ class PricesTransformer:
     def __init__(
         self, raw_data: dict[str, pd.DataFrame], exchange: str, interval: str
     ) -> None:
-        self.raw_data = raw_data
+        self.raw_data = raw_data.copy()
         self.__yahoo = Yahoo({})
         self.__interval = interval
         self.__enum_interval: INTERVAL_ENUM = getattr(INTERVAL_ENUM, interval)

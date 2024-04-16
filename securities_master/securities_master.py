@@ -448,10 +448,9 @@ class SecuritiesMaster:
                         "vendor": self.vendors[vendor],
                         "instrument": self.instruments[instrument],
                         "name": symbol,
-                        "sector": self.__yahoo.get_symbol_details(
-                            symbol,
-                            exchange_obj,
-                        )["sector"],
+                        "sector": self.__yahoo.get_specific_symbol_detail(
+                            symbol, exchange_obj, "sector"
+                        ),
                         "interval": self.intervals[interval],
                         "linked_table_name": table_name,
                         "created_datetime": (
@@ -475,10 +474,9 @@ class SecuritiesMaster:
                         "vendor": self.vendors[vendor],
                         "instrument": self.instruments[instrument],
                         "name": symbol,
-                        "sector": self.__yahoo.get_symbol_details(
-                            symbol,
-                            exchange_obj,
-                        )["sector"],
+                        "sector": self.__yahoo.get_specific_symbol_detail(
+                            symbol, exchange_obj, "sector"
+                        ),
                         "interval": self.intervals[interval],
                         "linked_table_name": table_name,
                         "created_datetime": (
@@ -657,10 +655,9 @@ class SecuritiesMaster:
                         "vendor": vendor,
                         "instrument": self.instruments[instrument],
                         "name": symbol,
-                        "sector": self.__yahoo.get_symbol_details(
-                            symbol,
-                            exchange_obj,
-                        )["sector"],
+                        "sector": self.__yahoo.get_specific_symbol_detail(
+                            symbol, exchange_obj, "sector"
+                        ),
                         "interval": interval,
                         "linked_table_name": table_list[0],
                         "created_datetime": (
