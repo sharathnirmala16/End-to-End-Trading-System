@@ -152,7 +152,8 @@ class Backtester(Broker):
         exec_price = price if order.price is np.nan else order.price
         comm = self.commission(order)
         if self.cash < comm:
-            raise TradingError(f"Cash: {self.cash} is not enough to continue trading.")
+            # raise TradingError(f"Cash: {self.cash} is not enough to continue trading.")
+            return
         else:
             pos = Position(
                 order, exec_price, self.datafeed.get_datetime_index()[0], comm
