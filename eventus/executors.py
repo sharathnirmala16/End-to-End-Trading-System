@@ -10,6 +10,7 @@ from eventus.strategy import Strategy
 from eventus.commissions import Commission
 from eventus.datafeeds import HistoricDataFeed
 from eventus.brokers import Broker, Backtester
+from eventus.analyzer import Analyzer
 
 
 @cython.annotation_typing(True)
@@ -47,6 +48,7 @@ class BacktestExecutor(Executor):
         leverage: float,
         commission_model: Commission,
         offset: int = 0,
+        **kwargs,
     ) -> None:
         self.idx = offset
         self.equity_curve = []
@@ -54,7 +56,7 @@ class BacktestExecutor(Executor):
         self.broker: Backtester = Backtester(cash, leverage, commission_model, datafeed)
         self.strategy = strategy(self.broker, datafeed)
 
-        self.strategy.init()
+        self.strategy.init(**kwargs)
 
         self.compute_idx_offset()
 
@@ -154,5 +156,6 @@ class BacktestExecutor(Executor):
         else:
             self.__run_no_pgbar()
 
-    def results(self) -> dict[str, list]:
-        return {"Equity Curve": self.equity_curve, "Trades": self.broker.trades}
+    def results(self) -> dict[str, pd.DataFrame]:
+        analysis = Analyzer(self.equity_curve, self.broker.trades)
+        return analysis.results
