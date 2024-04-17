@@ -2,10 +2,9 @@ import cython
 import numpy as np
 import pandas as pd
 
+from tqdm import tqdm
 from typing import Type
 from abc import ABC, abstractmethod
-from common.progress_bar import ProgressBar
-import progressbar
 from eventus.strategy import Strategy
 from eventus.commissions import Commission
 from eventus.datafeeds import HistoricDataFeed
@@ -98,43 +97,14 @@ class BacktestExecutor(Executor):
         self.broker.cancel_all_orders()
         self.broker.close_all_positions()
 
-    # def __run_pgbar(self) -> None:
-    #     start, stop = self.idx, self.broker.datafeed.data.shape[0]
-    #     # stop - 1 to ensure an extra row is left for closing any remaining order and positions
-    #     # order of the functions matters as we want orders to be filled on the next tick
-    #     for self.idx in range(start, stop - 1):
-    #         self.synchronize_indexes()
-    #         self.broker.fill_orders()
-    #         self.equity_curve.append(
-    #             [
-    #                 self.broker.datafeed.get_datetime_index()[0],
-    #                 self.broker.current_equity,
-    #             ]
-    #         )
-    #         self.strategy.next()
-    #         ProgressBar.print_progress_bar(
-    #             self.idx, stop - 2, prefix="Backtest Progress: "
-    #         )
-
-    #     self.broker.cancel_all_orders()
-    #     self.broker.close_all_positions()
-
     def __run_pgbar(self) -> None:
         start, stop = self.idx, self.broker.datafeed.data.shape[0]
         # stop - 1 to ensure an extra row is left for closing any remaining order and positions
         # order of the functions matters as we want orders to be filled on the next tick
-        widgets = [
-            " [",
-            progressbar.Timer(),
-            "] ",
-            " ",
-            progressbar.Percentage(),
-            " ",
-            progressbar.GranularBar(),
-            " ",
-            progressbar.AdaptiveETA(),
-        ]
-        with progressbar.ProgressBar(max_value=stop - 2, widgets=widgets) as bar:
+
+        with tqdm(
+            total=stop - 2, desc="Backtest Progress", unit="it", position=0, leave=True
+        ) as bar:
             for self.idx in range(start, stop - 1):
                 self.synchronize_indexes()
                 self.broker.fill_orders()
@@ -145,7 +115,7 @@ class BacktestExecutor(Executor):
                     ]
                 )
                 self.strategy.next()
-                bar.update(self.idx)
+                bar.update(1)  # Increment the progress bar by one tick
 
             self.broker.cancel_all_orders()
             self.broker.close_all_positions()
