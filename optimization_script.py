@@ -1,18 +1,13 @@
 import time
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from exchanges.nse import Nse
-from vendors.yahoo import Yahoo
 from credentials import breeze_credentials
-from common.enums import INTERVAL
 
-from eventus.datafeeds import HistoricDataFeed
 from eventus.indicators import *
-from eventus.executors import BacktestExecutor
 from eventus.commissions import *
 from eventus import strategy
-from eventus.analyzer import Analyzer
 from eventus.optimizer import optimize
 from credentials import breeze_credentials, psql_credentials
 from common.enums import *
