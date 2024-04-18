@@ -72,7 +72,16 @@ class MomentumPortfolioStrategy(strategy.Strategy):
         self.holding_period += 1
 
 
-def main():
+def get_symbols() -> list[str]:
+    filter_date = "2006-01-01"
+    nse = Nse()
+    symbols_df = nse.get_symbols_listing_date("NIFTY200")
+    symbols_df = symbols_df[symbols_df["DATE OF LISTING"] < filter_date]
+    return symbols_df.index.to_list()
+
+
+def get_transformed_data() -> PricesTransformer:
+    # initialize securities_master
     sm = SecuritiesMaster(
         vendor_login_credentials={
             VENDOR.YAHOO.name: {},
@@ -81,32 +90,33 @@ def main():
         db_credentials=psql_credentials,
     )
 
-    filter_date = "2006-01-01"
-    nse = Nse()
-    symbols_df = nse.get_symbols_listing_date("NIFTY200")
-    symbols_df = symbols_df[symbols_df["DATE OF LISTING"] < filter_date]
+    interval: str = "d1"
 
     raw_data_dict = sm.get_prices(
-        interval="d1",
+        interval=interval,
         start_datetime=datetime(2006, 1, 1),
         end_datetime=datetime(2018, 1, 1),
         vendor="YAHOO",
         exchange="NSE",
         instrument="STOCK",
-        symbols=symbols_df.index.to_list(),
+        symbols=get_symbols(),
         index=None,
         cache_data=True,
     )
 
-    prices_transformer = PricesTransformer(raw_data_dict, "NSE", "d1")
+    prices_transformer = PricesTransformer(raw_data_dict, "NSE", interval)
     prices_transformer.adjust_prices()
     prices_transformer.drop_adj_close()
+    return prices_transformer
 
+
+def main():
+    transformed_data: PricesTransformer = get_transformed_data()
     start = time.time()
     results = optimize(
         strategy=MomentumPortfolioStrategy,
-        datetime_index=prices_transformer.dt_index,
-        data_dict=prices_transformer.as_np_data,
+        datetime_index=transformed_data.dt_index,
+        data_dict=transformed_data.as_np_data,
         cash=100000,
         leverage=1,
         commission_model=PctFlatCommission(pct=0.05 / 100, amt=20),
