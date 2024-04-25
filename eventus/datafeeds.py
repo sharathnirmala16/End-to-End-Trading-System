@@ -167,3 +167,81 @@ class HistoricDataFeed(DataFeed):
             max(self.idx - window + 1, 0) : self.idx + 1,
             self.cols_dict[price] :: self.offset,
         ]
+
+
+@cython.annotation_typing(True)
+@cython.cclass
+class TensorDataFeed(DataFeed):
+    symbols: dict[str, int]
+    data: np.ndarray[np.float64]
+    dt_index: np.ndarray[np.float64]
+
+    def __init__(
+        self,
+        datetime_index: np.ndarray[np.float64],
+        data_dict: dict[str, np.ndarray[np.float64]],
+        cols_dict: dict[str, int] = {
+            "Open": 0,
+            "High": 1,
+            "Low": 2,
+            "Close": 3,
+            "Volume": 4,
+        },
+    ) -> None:
+        self.idx = 0
+        self.symbols = {symbol: index for index, symbol in enumerate(data_dict.keys())}
+        self.cols_dict = cols_dict
+        self.dt_index = datetime_index
+
+        # shape is rows = number of rows in the first, cols = number of cols in cols_dict, height = number of symbols
+        self.data = np.zeros(
+            shape=(
+                data_dict[list(self.symbols.keys())[0]].shape[0],
+                len(self.cols_dict),
+                len(self.symbols),
+            )
+        )
+
+        base_columns_size = data_dict[list(self.symbols.keys())[0]].shape[1]
+        for index, symbol in enumerate(self.symbols):
+            self.data[:, 0:base_columns_size, index] = data_dict[symbol]
+
+    def full_datetime_index(self) -> np.ndarray[np.float64]:
+        return self.dt_index
+
+    def full_symbol_prices(
+        self, symbol: str, price: str = "Close"
+    ) -> np.ndarray[np.float64]:
+        return self.data[:, self.cols_dict[price], self.symbols[symbol]]
+
+    def full_symbol_all_prices(self, symbol: str) -> np.ndarray[np.float64]:
+        return self.data[:, :, self.symbols[symbol]]
+
+    def full_prices_all_symbols(self, price: str = "Close") -> np.ndarray[np.float64]:
+        return self.data[:, self.cols_dict[price], :]
+
+    def get_datetime_index(self, window: int = 1) -> np.ndarray[np.float64]:
+        return self.dt_index[max(self.idx - window + 1, 0) : self.idx + 1]
+
+    def get_prices(
+        self, symbol: str, price: str = "Close", window: int = 1
+    ) -> np.ndarray[np.float64]:
+        return self.data[
+            max(self.idx - window + 1, 0) : self.idx + 1,
+            self.cols_dict[price],
+            self.symbols[symbol],
+        ]
+
+    def get_symbol_all_prices(
+        self, symbol: str, window: int = 1
+    ) -> np.ndarray[np.float64]:
+        return self.data[
+            max(self.idx - window + 1, 0) : self.idx + 1, :, self.symbols[symbol]
+        ]
+
+    def get_prices_all_symbols(
+        self, window: int = 1, price: str = "Close"
+    ) -> np.ndarray[np.float64]:
+        return self.data[
+            max(self.idx - window + 1, 0) : self.idx + 1, self.cols_dict[price], :
+        ]

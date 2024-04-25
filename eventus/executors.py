@@ -7,7 +7,7 @@ from typing import Type
 from abc import ABC, abstractmethod
 from eventus.strategy import Strategy
 from eventus.commissions import Commission
-from eventus.datafeeds import HistoricDataFeed
+from eventus.datafeeds import TensorDataFeed
 from eventus.brokers import Broker, Backtester
 from eventus.analyzer import Analyzer
 
@@ -35,7 +35,7 @@ class Executor(ABC):
 @cython.annotation_typing(True)
 @cython.cclass
 class BacktestExecutor(Executor):
-    datafeed: HistoricDataFeed
+    datafeed: TensorDataFeed
     equity_curve: list[list]
 
     def __init__(
@@ -51,7 +51,7 @@ class BacktestExecutor(Executor):
     ) -> None:
         self.idx = offset
         self.equity_curve = []
-        datafeed = HistoricDataFeed(datetime_index, data_dict)
+        datafeed = TensorDataFeed(datetime_index, data_dict)
         self.broker: Backtester = Backtester(cash, leverage, commission_model, datafeed)
         self.strategy = strategy(self.broker, datafeed)
 
@@ -103,7 +103,11 @@ class BacktestExecutor(Executor):
         # order of the functions matters as we want orders to be filled on the next tick
 
         with tqdm(
-            total=stop - 2, desc="Backtest Progress", unit="it", position=0, leave=True
+            total=stop - 2,
+            desc="Backtest Progress",
+            unit="it",
+            position=start,
+            leave=True,
         ) as bar:
             for self.idx in range(start, stop - 1):
                 self.synchronize_indexes()

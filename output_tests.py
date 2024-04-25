@@ -10,7 +10,7 @@ from common.enums import INTERVAL
 
 from numba import types
 from numba.typed.typeddict import Dict
-from eventus.datafeeds import HistoricDataFeed
+from eventus.datafeeds import HistoricDataFeed, TensorDataFeed
 from eventus.indicators import *
 from eventus.executors import BacktestExecutor
 from eventus.commissions import *
@@ -44,6 +44,8 @@ dt_index = data["RELIANCE"].index.values.astype(np.float64)
 np_data = Dict.empty(key_type=types.string, value_type=types.float64[:, :])
 for symbol in data:
     np_data[symbol] = data[symbol].values.astype(np.float64)
+
+datafeed = TensorDataFeed(dt_index, np_data)
 
 
 @cython.annotation_typing(True)

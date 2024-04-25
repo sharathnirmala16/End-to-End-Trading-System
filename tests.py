@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from eventus.order import Order
 from eventus.position import Position
 from eventus.trade import Trade
-from eventus.datafeeds import HistoricDataFeed
+from eventus.datafeeds import HistoricDataFeed, TensorDataFeed
 from eventus.indicators import *
 from eventus.commissions import *
 
@@ -961,4 +961,118 @@ class TestExponentialMovingAverage:
             self.indicator.full_signal(symbol),
             self.data[symbol]["ExponentialMovingAverage"].values,
             equal_nan=True,
+        )
+
+
+class TestTensorAndHistoricDataFeed:
+    def setup_method(self):
+        data = {
+            "RELIANCE": pd.read_csv(
+                "mock_data/mock_data2.csv", index_col=0, parse_dates=True
+            ),
+            "AXISBANK": pd.read_csv(
+                "mock_data/mock_data2.csv", index_col=0, parse_dates=True
+            ),
+            "CIPLA": pd.read_csv(
+                "mock_data/mock_data2.csv", index_col=0, parse_dates=True
+            ),
+        }
+        dt_index = data["RELIANCE"].index.values.astype(np.float64)
+        np_data = {}
+        for symbol in data:
+            np_data[symbol] = data[symbol].values.astype(np.float64)
+
+        self.historic_datafeed = HistoricDataFeed(dt_index, np_data)
+        self.tensor_datafeed = TensorDataFeed(dt_index, np_data)
+        self.historic_datafeed.idx = 20
+        self.tensor_datafeed.idx = 20
+        self.cols_list = ["Open", "High", "Low", "Close", "Volume"]
+        self.symbols = data.keys()
+
+    def test_full_datetime_index(self):
+        assert np.array_equal(
+            self.historic_datafeed.full_datetime_index(),
+            self.tensor_datafeed.full_datetime_index(),
+        )
+
+    @pytest.mark.parametrize(
+        "symbol, price",
+        [("RELIANCE", "Open"), ("AXISBANK", "Volume"), ("CIPLA", "Low")],
+    )
+    def test_full_symbol_prices(self, symbol: str, price: str):
+        assert np.array_equal(
+            self.historic_datafeed.full_symbol_prices(symbol, price),
+            self.tensor_datafeed.full_symbol_prices(symbol, price),
+        )
+
+    @pytest.mark.parametrize(
+        "symbol",
+        ["RELIANCE", "AXISBANK", "CIPLA"],
+    )
+    def test_full_symbol_all_prices(self, symbol: str):
+        assert np.array_equal(
+            self.historic_datafeed.full_symbol_all_prices(symbol),
+            self.tensor_datafeed.full_symbol_all_prices(symbol),
+        )
+
+    @pytest.mark.parametrize(
+        "price",
+        ["Open", "High", "Low", "Close", "Volume"],
+    )
+    def test_full_prices_all_symbols(self, price: str):
+        assert np.array_equal(
+            self.historic_datafeed.full_prices_all_symbols(price),
+            self.tensor_datafeed.full_prices_all_symbols(price),
+        )
+
+    def test_get_datetime_index(self):
+        assert np.array_equal(
+            self.historic_datafeed.get_datetime_index(),
+            self.tensor_datafeed.get_datetime_index(),
+        )
+        assert np.array_equal(
+            self.historic_datafeed.get_datetime_index(window=25),
+            self.tensor_datafeed.get_datetime_index(window=25),
+        )
+
+    @pytest.mark.parametrize(
+        "symbol, price",
+        [("RELIANCE", "Open"), ("AXISBANK", "High"), ("CIPLA", "Volume")],
+    )
+    def test_get_prices(self, symbol: str, price: str):
+        assert np.array_equal(
+            self.historic_datafeed.get_prices(symbol, price),
+            self.tensor_datafeed.get_prices(symbol, price),
+        )
+        assert np.array_equal(
+            self.historic_datafeed.get_prices(symbol, price, window=25),
+            self.tensor_datafeed.get_prices(symbol, price, window=25),
+        )
+
+    @pytest.mark.parametrize(
+        "symbol",
+        ["RELIANCE", "AXISBANK", "CIPLA"],
+    )
+    def test_get_symbol_all_prices(self, symbol: str):
+        assert np.array_equal(
+            self.historic_datafeed.get_symbol_all_prices(symbol),
+            self.tensor_datafeed.get_symbol_all_prices(symbol),
+        )
+        assert np.array_equal(
+            self.historic_datafeed.get_symbol_all_prices(symbol, window=25),
+            self.tensor_datafeed.get_symbol_all_prices(symbol, window=25),
+        )
+
+    @pytest.mark.parametrize(
+        "price",
+        ["Open", "High", "Low", "Close", "Volume"],
+    )
+    def test_get_prices_all_symbols(self, price: str):
+        assert np.array_equal(
+            self.historic_datafeed.get_prices_all_symbols(1, price),
+            self.tensor_datafeed.get_prices_all_symbols(1, price),
+        )
+        assert np.array_equal(
+            self.historic_datafeed.get_prices_all_symbols(window=25, price=price),
+            self.tensor_datafeed.get_prices_all_symbols(window=25, price=price),
         )
