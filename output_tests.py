@@ -47,30 +47,30 @@ for symbol in data:
 
 datafeed = TensorDataFeed(dt_index, np_data)
 
+print(data.keys())
+print(data["CIPLA"].shape)
+
 
 @cython.annotation_typing(True)
 @cython.cclass
 class BackTraderCompStrategy(strategy.Strategy):
     sma_period: int = 10
     lma_period: int = 40
-    sl_perc: float = 3 / 100
-    tp_perc: float = 9 / 100
-    alloc_perc = 25 / 100
 
     def init(self) -> None:
-        self.indicators["SMA"] = MovingAverage(self.datafeed, self.sma_period)
-        self.indicators["LMA"] = MovingAverage(self.datafeed, self.lma_period)
+        self.datafeed.add_indicator("SMA", MovingAverage(self.sma_period))
+        self.datafeed.add_indicator("LMA", MovingAverage(self.lma_period))
 
-        self.alloc_amt = self.broker.margin * self.alloc_perc
+        # self.alloc_amt = self.broker.margin * self.alloc_perc
 
     def next(self) -> None:
-        if self.broker.open_positions_count == 0:
-            self.alloc_amt = self.broker.margin * self.alloc_perc
+        # if self.broker.open_positions_count == 0:
+        #     self.alloc_amt = self.broker.margin * self.alloc_perc
 
         for symbol in self.datafeed.symbols:
-            sma = self.indicators["SMA"].get_signal(symbol, 2)
-            lma = self.indicators["LMA"].get_signal(symbol, 2)
-            if self.alloc_amt < self.broker.margin:
+            sma = self.datafeed.get_prices(symbol, "SMA", 2)
+            lma = self.datafeed.get_prices(symbol, "LMA", 2)
+            if len(self.broker.positions[symbol]) == 0:
                 if sma[0] <= lma[0] and sma[1] > lma[1]:
                     self.buy(symbol)
 
@@ -86,8 +86,18 @@ bt = BacktestExecutor(
     cash=100000.0,
     leverage=1.0,
     commission_model=PctFlatCommission(pct=0.05 / 100, amt=5),
+    cols_dict={
+        "Open": 0,
+        "High": 1,
+        "Low": 2,
+        "Close": 3,
+        "Volume": 4,
+        "SMA": 5,
+        "LMA": 6,
+    },
 )
 bt.run(progress=True)
 end = time.time()
 res = bt.results()
+print(res["KPIs"])
 print(f"Execution Time: {end - start}s")

@@ -47,11 +47,18 @@ class BacktestExecutor(Executor):
         leverage: float,
         commission_model: Commission,
         offset: int = 0,
+        cols_dict: dict[str, int] = {
+            "Open": 0,
+            "High": 1,
+            "Low": 2,
+            "Close": 3,
+            "Volume": 4,
+        },
         **kwargs,
     ) -> None:
         self.idx = offset
         self.equity_curve = []
-        datafeed = TensorDataFeed(datetime_index, data_dict)
+        datafeed = TensorDataFeed(datetime_index, data_dict, cols_dict)
         self.broker: Backtester = Backtester(cash, leverage, commission_model, datafeed)
         self.strategy = strategy(self.broker, datafeed)
 

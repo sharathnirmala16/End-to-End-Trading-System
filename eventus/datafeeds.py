@@ -3,6 +3,7 @@ import numpy as np
 
 from numba import types
 from abc import ABC, abstractmethod
+from eventus.indicators import Indicator
 from common.exceptions import DataFeedError
 
 # spec = {
@@ -62,6 +63,18 @@ class DataFeed(ABC):
     def get_prices_all_symbols(
         self, window: int = 1, price: str = "Close"
     ) -> np.ndarray[np.float64]:
+        pass
+
+    @abstractmethod
+    def add_indicator(
+        self, name: str, indicator: Indicator, price: str = "Close"
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def add_indicator_for_symbol(
+        self, name: str, indicator: Indicator, symbols: list[str], price: str = "Close"
+    ) -> None:
         pass
 
 
@@ -168,6 +181,18 @@ class HistoricDataFeed(DataFeed):
             self.cols_dict[price] :: self.offset,
         ]
 
+    # added to allow unit tests to run, deprecated class
+    def add_indicator(
+        self, name: str, indicator: Indicator, price: str = "Close"
+    ) -> None:
+        pass
+
+    # added to allow unit tests to run, deprecated class
+    def add_indicator_for_symbol(
+        self, name: str, indicator: Indicator, symbols: list[str], price: str = "Close"
+    ) -> None:
+        pass
+
 
 @cython.annotation_typing(True)
 @cython.cclass
@@ -245,3 +270,24 @@ class TensorDataFeed(DataFeed):
         return self.data[
             max(self.idx - window + 1, 0) : self.idx + 1, self.cols_dict[price], :
         ]
+
+    def add_indicator(
+        self, name: str, indicator: Indicator, price: str = "Close"
+    ) -> None:
+        # for some reason fails horibly with np.apply_along_axis
+        for symbol in self.symbols:
+            self.data[:, self.cols_dict[name], self.symbols[symbol]] = (
+                indicator.indicator(
+                    self.data[:, self.cols_dict[price], self.symbols[symbol]]
+                )
+            )
+
+    def add_indicator_for_symbol(
+        self, name: str, indicator: Indicator, symbols: list[str], price: str = "Close"
+    ) -> None:
+        for symbol in symbols:
+            self.data[:, self.cols_dict[name], self.symbols[symbol]] = (
+                indicator.indicator(
+                    arr=self.data[:, self.cols_dict[price], self.symbols[symbol]]
+                )
+            )
