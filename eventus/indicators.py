@@ -19,6 +19,18 @@ class Indicator(ABC):
         strides = inp.strides + (inp.strides[-1],)
         return np.lib.stride_tricks.as_strided(inp, shape=shape, strides=strides)
 
+    @staticmethod
+    def arr_shift(arr: np.ndarray[np.float64], shift: int) -> np.ndarray[np.float64]:
+        if shift == 0:
+            return arr
+        nas = np.empty(abs(shift))
+        nas[:] = np.nan
+        if shift > 0:
+            res = arr[:-shift]
+            return np.concatenate((nas, res))
+        res = arr[-shift:]
+        return np.concatenate((res, nas))
+
 
 @cython.annotation_typing(True)
 @cython.cclass
@@ -60,3 +72,15 @@ class ExponentialMovingAverage(Indicator):
         cumsums = mult.cumsum()
         res[self.span - 1 :] = (offset + cumsums * scale_arr[::-1])[self.span - 1 :]
         return res
+
+
+@cython.annotation_typing(True)
+@cython.cclass
+class PctChange(Indicator):
+    def __init__(self) -> None:
+        pass
+
+    def indicator(self, arr: np.ndarray[np.float64]) -> np.ndarray[np.float64]:
+        inp = deepcopy(arr)
+        shift_inp = self.arr_shift(inp, 1)
+        return (inp / shift_inp) - 1

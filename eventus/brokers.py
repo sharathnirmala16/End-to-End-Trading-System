@@ -116,9 +116,10 @@ class Backtester(Broker):
             self.orders[order.symbol][order.order_id] = order
             return order.order_id
         else:
-            raise TradingError(
-                f"Available margin: {self.margin} is not enough, order cost is {cost_no_comm + comm}"
-            )
+            # raise TradingError(
+            #     f"Available margin: {self.margin} is not enough, order cost is {cost_no_comm + comm}"
+            # )
+            return np.nan
 
     def __cancel_order(self, symbol: str, order_id: int) -> bool:
         order = self.orders[symbol].pop(order_id)

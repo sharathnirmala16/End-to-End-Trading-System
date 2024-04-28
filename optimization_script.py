@@ -15,61 +15,41 @@ from securities_master.securities_master import SecuritiesMaster
 from securities_master.prices_transformer import PricesTransformer
 
 
-class MomentumPortfolioStrategy(strategy.Strategy):
-    rebalancing_period = 120
-    stocks_count = 10
-    sl_frac = 0.4
+class StdMeanReversion(strategy.Strategy):
+    def init(self, devs: float = 4, sl_perc=0.2, tp_perc=0.1):
+        self.devs = devs
+        self.sl_perc = sl_perc
+        self.tp_perc = tp_perc
+        self.datafeed.add_indicator("PctChange", PctChange())
+        self.symbols_upper_limit = {}
+        self.symbols_lower_limit = {}
 
-    def momentum_stocks(
-        self, data_close: np.ndarray[np.float64], data_vol: np.ndarray[np.float64]
-    ) -> set[str]:
-        # Filters by momentum and then priority for market cap
-        df_close = pd.DataFrame(data_close, columns=self.datafeed.symbols.keys())
-        df_vol = pd.DataFrame(data_vol, columns=self.datafeed.symbols.keys())
-        returns: dict[str, float] = {}
-        mkt_capt: dict[str, float] = {}
-        for symbol in df_close.columns:
-            mkt_capt[symbol] = df_vol[symbol].iloc[-1] * df_close[symbol].iloc[-1]
-            df_close[symbol] = np.log(df_close[symbol].pct_change() + 1)
-            returns[symbol] = df_close[symbol].sum()
-
-        final_df = pd.DataFrame(
-            {"Returns": returns, "MarketCap": mkt_capt}
-        ).sort_values(by=["Returns", "MarketCap"], ascending=False)
-        return final_df.index.to_list()[: min(final_df.shape[0], self.stocks_count)]
-
-    def init(
-        self,
-        rebalancing_period: int = 120,
-        stocks_count: int = 10,
-        sl_frac: float = 0.4,
-    ) -> None:
-        self.holding_period: int = 0
-        self.rebalancing_period = rebalancing_period
-        self.stocks_count = stocks_count
-        self.sl_frac = sl_frac
-
-    def next(self) -> None:
-        if self.broker.open_positions_count == 0:
-            stocks = self.momentum_stocks(
-                self.datafeed.get_prices_all_symbols(window=self.rebalancing_period),
-                self.datafeed.get_prices_all_symbols(
-                    window=self.rebalancing_period, price="Volume"
-                ),
+        for symbol in self.datafeed.symbols:
+            arr = self.datafeed.full_symbol_prices(symbol, "PctChange")
+            self.symbols_upper_limit[symbol] = np.nanmean(arr) + (
+                self.devs * np.nanstd(arr)
             )
-            amt = self.broker.margin / len(stocks)
-            for stock in stocks:
-                size = (
-                    amt // self.datafeed.get_prices(stock, price="Close", window=1)[0]
-                )
-                if size > 0:
-                    sl = self.datafeed.get_prices(stock)[0] * (1 - self.sl_frac)
-                    self.buy(stock, size=size, sl=sl)
-        elif self.holding_period >= self.rebalancing_period:
-            for symbol in self.broker.positions:
-                self.close_position(symbol)
-            self.holding_period = 0
-        self.holding_period += 1
+            self.symbols_lower_limit[symbol] = np.nanmean(arr) - (
+                self.devs * np.nanstd(arr)
+            )
+
+    def next(self):
+        for symbol in self.datafeed.symbols:
+            pct_change = self.datafeed.get_prices(symbol, "PctChange")
+            price = self.datafeed.get_prices(symbol, "Close")
+            if len(self.broker.positions[symbol]) == 0:
+                if pct_change[-1] >= self.symbols_upper_limit[symbol]:
+                    self.sell(
+                        symbol,
+                        sl=price * (1 + self.sl_perc),
+                        tp=price * (1 - self.tp_perc),
+                    )
+                elif pct_change[-1] <= self.symbols_lower_limit[symbol]:
+                    self.buy(
+                        symbol,
+                        sl=price * (1 - self.sl_perc),
+                        tp=price * (1 + self.tp_perc),
+                    )
 
 
 def get_symbols() -> list[str]:
@@ -114,17 +94,25 @@ def main():
     transformed_data: PricesTransformer = get_transformed_data()
     start = time.time()
     results = optimize(
-        strategy=MomentumPortfolioStrategy,
+        strategy=StdMeanReversion,
         datetime_index=transformed_data.dt_index,
         data_dict=transformed_data.as_np_data,
         cash=100000,
         leverage=1,
         commission_model=PctFlatCommission(pct=0.05 / 100, amt=20),
         offset=180,
+        cols_dict={
+            "Open": 0,
+            "High": 1,
+            "Low": 2,
+            "Close": 3,
+            "Volume": 4,
+            "PctChange": 5,
+        },
         params={
-            "rebalancing_period": range(40, 200, 40),
-            "stocks_count": range(5, 25, 5),
-            "sl_frac": [0.2, 0.3, 0.4, 0.5],
+            "devs": range(1, 10, 2),
+            "sl_perc": np.linspace(0.01, 0.5, num=10),
+            "tp_perc": np.linspace(0.01, 0.5, num=10),
         },
     ).sort_values(by=["Portfolio Sharpe Ratio", "CAGR (Ann.) [%]"], ascending=False)
     end = time.time()

@@ -46,7 +46,14 @@ def optimize(
     leverage: float,
     commission_model: Commission,
     offset: int,
-    params: dict[str, list],
+    cols_dict: dict[str, int] = {
+        "Open": 0,
+        "High": 1,
+        "Low": 2,
+        "Close": 3,
+        "Volume": 4,
+    },
+    params: dict[str, list] = {},
 ) -> pd.DataFrame:
     params_to_send = {
         "strategy": [strategy],
@@ -56,6 +63,7 @@ def optimize(
         "leverage": [leverage],
         "commission_model": [commission_model],
         "offset": [offset],
+        "cols_dict": [cols_dict],
         **params,
     }
     combinations = product(*(values for values in params_to_send.values()))
