@@ -42,6 +42,7 @@ class Analyzer:
             self.results["Avg Win [%]"],
             self.results["Avg Loss [%]"],
         )
+        self.results.update(self.trade_duration_stats(self.results["Trades"]))
 
         # Compute all results above
         kpis = self.results

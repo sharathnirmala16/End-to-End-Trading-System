@@ -73,7 +73,7 @@ def optimize(
     ]
 
     optimization_results = process_map(
-        run, kv_pairs_list, max_workers=psutil.cpu_count(logical=False)
+        run, kv_pairs_list, max_workers=psutil.cpu_count(logical=True)
     )
     optimization_df = pd.DataFrame(optimization_results)
     results = optimization_df.set_index(list(params.keys()), inplace=False)

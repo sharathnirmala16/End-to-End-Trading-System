@@ -16,10 +16,11 @@ from securities_master.prices_transformer import PricesTransformer
 
 
 class StdMeanReversion(strategy.Strategy):
-    def init(self, devs: float = 4, sl_perc=0.2, tp_perc=0.1):
+    def init(self, devs: float = 6, sl_perc=0.5, tp_perc=0.1, capital_frac=0.05):
         self.devs = devs
         self.sl_perc = sl_perc
         self.tp_perc = tp_perc
+        self.capital_frac = capital_frac
         self.datafeed.add_indicator("PctChange", PctChange())
         self.symbols_upper_limit = {}
         self.symbols_lower_limit = {}
@@ -33,20 +34,28 @@ class StdMeanReversion(strategy.Strategy):
                 self.devs * np.nanstd(arr)
             )
 
+        self.max_capital_alloc = self.capital_frac * self.broker.margin
+
     def next(self):
+        if self.broker.open_positions_count == 0:
+            self.max_capital_alloc = self.capital_frac * self.broker.margin
+
         for symbol in self.datafeed.symbols:
             pct_change = self.datafeed.get_prices(symbol, "PctChange")
             price = self.datafeed.get_prices(symbol, "Close")
             if len(self.broker.positions[symbol]) == 0:
-                if pct_change[-1] >= self.symbols_upper_limit[symbol]:
+                size = self.max_capital_alloc // price[-1]
+                if pct_change[-1] >= self.symbols_upper_limit[symbol] and size > 0:
                     self.sell(
                         symbol,
+                        size=size,
                         sl=price * (1 + self.sl_perc),
                         tp=price * (1 - self.tp_perc),
                     )
-                elif pct_change[-1] <= self.symbols_lower_limit[symbol]:
+                elif pct_change[-1] <= self.symbols_lower_limit[symbol] and size > 0:
                     self.buy(
                         symbol,
+                        size=size,
                         sl=price * (1 - self.sl_perc),
                         tp=price * (1 + self.tp_perc),
                     )
@@ -110,13 +119,27 @@ def main():
             "PctChange": 5,
         },
         params={
-            "devs": range(1, 10, 2),
-            "sl_perc": np.linspace(0.01, 0.5, num=10),
-            "tp_perc": np.linspace(0.01, 0.5, num=10),
+            "devs": range(2, 10, 2),
+            "sl_perc": np.linspace(0.05, 0.3, num=5),
+            "tp_perc": np.linspace(0.05, 0.3, num=5),
+            "capital_frac": np.linspace(0.05, 0.30, num=5),
         },
-    ).sort_values(by=["Portfolio Sharpe Ratio", "CAGR (Ann.) [%]"], ascending=False)
+    ).sort_values(
+        by=[
+            "CAGR (Ann.) [%]",
+            "Expected Value [%]",
+            "Portfolio Sharpe Ratio",
+            "Win Rate [%]",
+        ],
+        ascending=False,
+    )
     end = time.time()
-    results.to_csv("optimization_results.csv", index=True)
+    try:
+        results.to_csv("optimization_results.csv", index=True)
+    except:
+        results.to_csv(
+            f"optimization_results{np.random.randint(1, 100)}.csv", index=True
+        )
     print(f"Execution Time:{end - start}s")
 
 
