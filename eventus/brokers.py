@@ -51,6 +51,10 @@ class Broker(ABC):
     def synchronize_indexes(self) -> None:
         pass
 
+    @abstractmethod
+    def order_cost(self, symbol: str, size: float) -> float:
+        pass
+
     @property
     @abstractmethod
     def open_positions_count(self) -> float:
@@ -262,6 +266,10 @@ class Backtester(Broker):
 
     def synchronize_indexes(self) -> None:
         self.datafeed.idx = self.idx
+
+    def order_cost(self, symbol: str, size: float) -> float:
+        price = self.datafeed.get_prices(symbol, "Close", 1)[-1]
+        return (price * size) + self.commission_model.calculate_commission(price, size)
 
     @property
     def margin(self) -> float:
