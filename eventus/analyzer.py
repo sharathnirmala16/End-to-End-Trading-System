@@ -25,7 +25,7 @@ class Analyzer:
             qs.reports.html(
                 self.results["Equity Curve [$]"].pct_change()["Equity [$]"],
                 title=qs_tearsheet,
-                download_filename=f"/{qs_tearsheet}.html",
+                download_filename=f"tearsheets/{qs_tearsheet}.html",
             )
 
     def compute_results(self) -> None:
