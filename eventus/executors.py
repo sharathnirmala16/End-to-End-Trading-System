@@ -137,6 +137,6 @@ class BacktestExecutor(Executor):
         else:
             self.__run_no_pgbar()
 
-    def results(self) -> dict[str, pd.DataFrame]:
-        analysis = Analyzer(self.equity_curve, self.broker.trades)
+    def results(self, qs_tearsheet: str | None = None) -> dict[str, pd.DataFrame]:
+        analysis = Analyzer(self.equity_curve, self.broker.trades, qs_tearsheet)
         return analysis.results

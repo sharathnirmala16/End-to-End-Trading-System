@@ -1,12 +1,18 @@
 import numpy as np
 import pandas as pd
+import quantstats as qs
 
 from eventus.trade import Trade
 from datetime import datetime
 
 
 class Analyzer:
-    def __init__(self, equity_curve: list[list], trades: list[Trade]) -> None:
+    def __init__(
+        self,
+        equity_curve: list[list],
+        trades: list[Trade],
+        qs_tearsheet: str | None = None,
+    ) -> None:
         self.results: dict = {}
         equity_array = np.array(equity_curve)
         self.equity_curve = pd.Series(
@@ -14,6 +20,13 @@ class Analyzer:
         )
         self.trades = self.parse_trades(trades)
         self.compute_results()
+
+        if qs_tearsheet is not None:
+            qs.reports.html(
+                self.results["Equity Curve [$]"].pct_change()["Equity [$]"],
+                title=qs_tearsheet,
+                download_filename=f"/{qs_tearsheet}.html",
+            )
 
     def compute_results(self) -> None:
         self.results["Starting Equity [$]"] = self.equity_curve.values[0]
