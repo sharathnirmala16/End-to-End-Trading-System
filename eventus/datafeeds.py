@@ -24,6 +24,7 @@ from common.exceptions import DataFeedError
 class DataFeed(ABC):
     idx: int
     symbols: dict[str, int]
+    cols_dict: dict[str, int]
 
     @abstractmethod
     def full_datetime_index(self) -> np.ndarray[np.float64]:
@@ -69,6 +70,10 @@ class DataFeed(ABC):
     def add_indicator(
         self, name: str, indicator: Indicator, price: str = "Close"
     ) -> None:
+        pass
+
+    @abstractmethod
+    def add_indicator_all_prices(self, name: str, indicator: Indicator) -> None:
         pass
 
     @abstractmethod
@@ -280,6 +285,12 @@ class TensorDataFeed(DataFeed):
                 indicator.indicator(
                     self.data[:, self.cols_dict[price], self.symbols[symbol]]
                 )
+            )
+
+    def add_indicator_all_prices(self, name: str, indicator: Indicator) -> None:
+        for symbol in self.symbols:
+            self.data[:, self.cols_dict[name], self.symbols[symbol]] = (
+                indicator.indicator(self.data[:, :, self.symbols[symbol]])
             )
 
     def add_indicator_for_symbol(

@@ -71,7 +71,6 @@ def optimize(
         {key: value for key, value in zip(params_to_send.keys(), combination)}
         for combination in combinations
     ]
-
     optimization_results = process_map(
         run, kv_pairs_list, max_workers=psutil.cpu_count(logical=True)
     )

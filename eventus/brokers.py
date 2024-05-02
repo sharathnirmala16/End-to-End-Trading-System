@@ -55,6 +55,10 @@ class Broker(ABC):
     def order_cost(self, symbol: str, size: float) -> float:
         pass
 
+    @abstractmethod
+    def is_fillable_order(self, symbol: str, size: float) -> bool:
+        pass
+
     @property
     @abstractmethod
     def open_positions_count(self) -> float:
@@ -270,6 +274,11 @@ class Backtester(Broker):
     def order_cost(self, symbol: str, size: float) -> float:
         price = self.datafeed.get_prices(symbol, "Close", 1)[-1]
         return (price * size) + self.commission_model.calculate_commission(price, size)
+
+    def is_fillable_order(self, symbol: str, size: float) -> bool:
+        if size > 0 and self.order_cost(symbol, size) < self.margin:
+            return True
+        return False
 
     @property
     def margin(self) -> float:
