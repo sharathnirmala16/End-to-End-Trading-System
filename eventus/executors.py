@@ -62,6 +62,7 @@ class BacktestExecutor(Executor):
         self.broker: Backtester = Backtester(cash, leverage, commission_model, datafeed)
         self.strategy = strategy(self.broker, datafeed)
 
+        self.synchronize_indexes()
         self.strategy.init(**kwargs)
 
         self.compute_idx_offset()

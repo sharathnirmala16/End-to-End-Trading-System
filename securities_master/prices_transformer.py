@@ -2,6 +2,7 @@ import importlib
 import numpy as np
 import pandas as pd
 
+from copy import deepcopy
 from datetime import timedelta
 from vendors.yahoo import Yahoo
 from exchanges.exchange import Exchange
@@ -14,7 +15,7 @@ class PricesTransformer:
     def __init__(
         self, raw_data: dict[str, pd.DataFrame], exchange: str, interval: str
     ) -> None:
-        self.raw_data = raw_data.copy()
+        self.raw_data = deepcopy(raw_data)
         self.__yahoo = Yahoo({})
         self.__interval = interval
         self.__enum_interval: INTERVAL_ENUM = getattr(INTERVAL_ENUM, interval)
