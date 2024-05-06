@@ -1,6 +1,7 @@
 import cython
 import numpy as np
 
+from copy import deepcopy
 from abc import ABC, abstractmethod
 from common.exceptions import TradingError
 from eventus.order import Order
@@ -88,6 +89,8 @@ class Backtester(Broker):
     idx: int
     datafeed: DataFeed
 
+    close_position_buffer: dict[int, str]
+
     def __init__(
         self,
         cash: float,
@@ -97,6 +100,7 @@ class Backtester(Broker):
     ) -> None:
         super().__init__(cash, leverage, commission_model)
         self.idx = 0
+        self.close_position_buffer = {}
         self.orders = {symbol: {} for symbol in datafeed.symbols}
         self.positions = {symbol: {} for symbol in datafeed.symbols}
         self.trades = []
@@ -224,7 +228,7 @@ class Backtester(Broker):
                 pos_to_close.order_type in {"SELL", "SELL_LIMIT"}
                 and price >= order.price
             ):
-                self.__close_position(pos_to_close.symbol, pos_to_close.position_id)
+                self.close_position(pos_to_close.symbol, pos_to_close.position_id)
         elif order.order_type == "TAKE_PROFIT":
             if (
                 pos_to_close.order_type in {"BUY", "BUY_LIMIT"} and price >= order.price
@@ -232,7 +236,7 @@ class Backtester(Broker):
                 pos_to_close.order_type in {"SELL", "SELL_LIMIT"}
                 and price <= order.price
             ):
-                self.__close_position(pos_to_close.symbol, pos_to_close.position_id)
+                self.close_position(pos_to_close.symbol, pos_to_close.position_id)
 
     def __close_position(self, symbol: str, position_id: int) -> bool:
         position = self.positions[symbol].pop(position_id)
@@ -246,17 +250,25 @@ class Backtester(Broker):
         self.trades.append(
             Trade(position, current_price, self.datafeed.get_datetime_index()[0], comm)
         )
+        self.close_position_buffer.pop(position_id)
         return True
+
+    def close_all_positions_in_buffer(self) -> None:
+        # used to simulate closing the postion on t+1 if close signal given on time t.
+        copy_buffer = deepcopy(self.close_position_buffer)
+        for position_id in copy_buffer:
+            self.__close_position(copy_buffer[position_id], position_id)
 
     def close_position(self, symbol: str, position_id: int = np.nan) -> bool:
         """if order_id is np.nan, all positions of the symbol are close"""
         if symbol in self.positions:
             if position_id in self.positions[symbol]:
-                return self.__close_position(symbol, position_id)
+                self.close_position_buffer[position_id] = symbol
+                return True
             else:
                 position_ids = list(self.positions[symbol].keys())
                 for p_id in position_ids:
-                    self.__close_position(symbol, p_id)
+                    self.close_position_buffer[p_id] = symbol
                 return True
         else:
             return False
@@ -265,7 +277,7 @@ class Backtester(Broker):
         for symbol in self.positions:
             position_ids = list(self.positions[symbol].keys())
             for position_id in position_ids:
-                self.__close_position(symbol, position_id)
+                self.close_position(symbol, position_id)
         return True
 
     def synchronize_indexes(self) -> None:

@@ -78,7 +78,16 @@ class DataFeed(ABC):
 
     @abstractmethod
     def add_indicator_for_symbol(
-        self, name: str, indicator: Indicator, symbols: list[str], price: str = "Close"
+        self, name: str, indicator: Indicator, symbol: str, price: str = "Close"
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def add_indicator_for_symbol_all_prices(
+        self,
+        name: str,
+        indicator: Indicator,
+        symbol: str,
     ) -> None:
         pass
 
@@ -294,11 +303,18 @@ class TensorDataFeed(DataFeed):
             )
 
     def add_indicator_for_symbol(
-        self, name: str, indicator: Indicator, symbols: list[str], price: str = "Close"
+        self, name: str, indicator: Indicator, symbol: str, price: str = "Close"
     ) -> None:
-        for symbol in symbols:
-            self.data[:, self.cols_dict[name], self.symbols[symbol]] = (
-                indicator.indicator(
-                    arr=self.data[:, self.cols_dict[price], self.symbols[symbol]]
-                )
-            )
+        self.data[:, self.cols_dict[name], self.symbols[symbol]] = indicator.indicator(
+            arr=self.data[:, self.cols_dict[price], self.symbols[symbol]]
+        )
+
+    def add_indicator_for_symbol_all_prices(
+        self,
+        name: str,
+        indicator: Indicator,
+        symbol: str,
+    ) -> None:
+        self.data[:, self.cols_dict[name], self.symbols[symbol]] = indicator.indicator(
+            self.data[:, :, self.symbols[symbol]]
+        )

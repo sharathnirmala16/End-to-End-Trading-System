@@ -94,6 +94,7 @@ class BacktestExecutor(Executor):
         for self.idx in range(start, stop - 1):
             self.synchronize_indexes()
             self.broker.fill_orders()
+            self.broker.close_all_positions_in_buffer()
             self.equity_curve.append(
                 [
                     self.broker.datafeed.get_datetime_index()[0],
@@ -104,6 +105,9 @@ class BacktestExecutor(Executor):
 
         self.broker.cancel_all_orders()
         self.broker.close_all_positions()
+        self.idx += 1
+        self.synchronize_indexes()
+        self.broker.close_all_positions_in_buffer()
 
     def __run_pgbar(self) -> None:
         start, stop = self.idx, self.broker.datafeed.data.shape[0]
@@ -120,6 +124,7 @@ class BacktestExecutor(Executor):
             for self.idx in range(start, stop - 1):
                 self.synchronize_indexes()
                 self.broker.fill_orders()
+                self.broker.close_all_positions_in_buffer()
                 self.equity_curve.append(
                     [
                         self.broker.datafeed.get_datetime_index()[0],
@@ -131,6 +136,9 @@ class BacktestExecutor(Executor):
 
             self.broker.cancel_all_orders()
             self.broker.close_all_positions()
+            self.idx += 1
+            self.synchronize_indexes()
+            self.broker.close_all_positions_in_buffer()
 
     def run(self, progress: bool = True) -> None:
         if progress:
