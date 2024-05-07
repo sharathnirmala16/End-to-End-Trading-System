@@ -115,7 +115,7 @@ class BacktestExecutor(Executor):
         # order of the functions matters as we want orders to be filled on the next tick
 
         with tqdm(
-            total=stop - 2,
+            total=stop - self.idx,
             desc="Backtest Progress",
             unit="it",
             position=start,

@@ -146,7 +146,9 @@ class Analyzer:
     def win_stats(trades: pd.DataFrame) -> dict[str, float]:
         df = trades.copy(deep=True)
         res: dict[str, float] = {}
-        res["Win Rate [%]"] = ((df["Net PnL"] > 0).sum() / df.shape[0]) * 100
+        res["Win Rate [%]"] = (
+            df.loc[(df["Net PnL [%]"] > 0)].shape[0] / df.shape[0]
+        ) * 100
 
         res["Avg Win [%]"] = df.loc[(df["Net PnL [%]"] > 0), "Net PnL [%]"].mean()
 
