@@ -14,3 +14,4 @@ temp_test.py
 strategies.ipynb
 dec_tree_vectorbt.py
 *.html
+*.xlsx
