@@ -12,3 +12,5 @@ temp_test.py
 *.log
 *.ipynb
 strategies.ipynb
+dec_tree_vectorbt.py
+*.html

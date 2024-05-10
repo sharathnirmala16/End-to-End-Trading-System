@@ -2,6 +2,7 @@ pytz==2023.3.post1
 numpy==1.25.0
 pandas==2.0.3
 psycopg2==2.9.3
+psycopg2-binary==2.9.9
 yfinance==0.2.12
 requests==2.28.1
 sqlalchemy==1.4.39
@@ -13,3 +14,5 @@ PyJWT==2.8.0
 bcrypt==4.0.1
 breeze_connect==1.0.48
 uvicorn[standard]==0.23.2
+quantstats==0.0.62
+vectorbt==0.26.1
